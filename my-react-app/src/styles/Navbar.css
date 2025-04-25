@@ -1,0 +1,83 @@
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 48px;
+    background-color: #FFC107;
+    border-bottom: 1px solid #f1f1f1;
+    width: 100%;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-weight: 600;
+    font-size: 36px;
+    color: #000000;
+}
+
+.logo-icon {
+    height: 60px; /* Increased from 36px to 48px to make the logo icon larger */
+    width: auto;
+    object-fit: contain;
+}
+
+.logo-text {
+    font-size: 36px;
+    font-weight: 600;
+}
+
+.nav-actions {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+}
+
+.action-icon,
+.dark-mode-toggle {
+    background: none;
+    border: none;
+    font-size: 32px;
+    cursor: pointer;
+    color: #666;
+    transition: background-color 0.2s;
+}
+
+.action-icon:hover,
+.dark-mode-toggle:hover {
+    background-color: #e0e0e0;
+}
+
+.user-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Dark mode styles for the body */
+body.dark-mode {
+    background-color: #1a1a1a;
+    color: #fff;
+}
+
+/* Dark mode adjustments for the navbar */
+body.dark-mode .navbar {
+    background-color: #2a2a2a;
+    border-bottom: 1px solid #444;
+}
+
+body.dark-mode .logo,
+body.dark-mode .logo-text,
+body.dark-mode .action-icon,
+body.dark-mode .dark-mode-toggle {
+    color: #ccc;
+}
