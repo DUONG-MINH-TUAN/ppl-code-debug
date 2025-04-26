@@ -1,0 +1,107 @@
+.chat-input-container {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 12px;
+    display: flex;
+    border-radius: 20px;
+    background-color: white;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.chat-input {
+    flex: 1;
+    border: none;
+    padding: 14px 18px;
+    font-size: 18px;
+    outline: none;
+    background: transparent;
+    color: #333; /* Default text color in light mode */
+}
+
+.input-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-right: 12px;
+}
+
+.action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+.action-btn:hover {
+    background-color: #f0f0f0;
+}
+
+.send-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.send-btn:hover {
+    background-color: #f0f0f0;
+    color: #1a73e8;
+}
+
+.send-btn svg {
+    stroke: #666;
+}
+
+.send-btn:hover svg {
+    stroke: #1a73e8;
+}
+
+/* Dark mode adjustments */
+body.dark-mode .chat-input-container {
+    background-color: #333; /* Dark gray background in dark mode */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); /* Slightly darker shadow for depth */
+}
+
+body.dark-mode .chat-input {
+    color: #ddd; /* Light gray text for better contrast */
+}
+
+body.dark-mode .action-btn {
+    color: #ccc; /* Lighter color for icons in dark mode */
+}
+
+body.dark-mode .action-btn:hover {
+    background-color: #444; /* Darker hover background for contrast */
+}
+
+body.dark-mode .send-btn {
+    color: #ccc; /* Lighter color for the send button in dark mode */
+}
+
+body.dark-mode .send-btn:hover {
+    background-color: #444;
+    color: #1a73e8; /* Keep the blue hover effect */
+}
+
+body.dark-mode .send-btn svg {
+    stroke: #ccc; /* Match the lighter color in dark mode */
+}
+
+body.dark-mode .send-btn:hover svg {
+    stroke: #1a73e8; /* Keep the blue hover effect */
+}

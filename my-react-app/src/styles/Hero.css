@@ -1,0 +1,35 @@
+.hero {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.robot {
+    max-width: 150px; /* Set to 150px to shrink the image */
+    max-height: 150px; /* Set to 150px to shrink the image */
+    width: auto;
+    height: auto;
+    margin-bottom: 20px; /* Space between the image and the greeting message */
+    border-radius: 10px; /* Optional: Rounded corners for the image */
+}
+
+.hero h1 {
+    font-size: 36px;
+    font-weight: 600;
+    color: #000000;
+    margin-bottom: 8px;
+}
+
+.hero p {
+    font-size: 24px;
+    color: #666;
+}
+
+/* Change the greeting message color to white in dark mode */
+body.dark-mode .hero h1 {
+    color: #fff;
+}
+
+/* Adjust the <p> color in dark mode for better contrast */
+body.dark-mode .hero p {
+    color: #ccc;
+}
