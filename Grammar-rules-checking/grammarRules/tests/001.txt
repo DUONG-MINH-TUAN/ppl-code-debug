@@ -1,0 +1,11 @@
+function Hi(hello) {
+    const [temp, setTemp] = useState(0);
+    return(
+        <> 
+            <div>
+                <div>
+                </div>
+            </div>
+        </>
+    )
+}
