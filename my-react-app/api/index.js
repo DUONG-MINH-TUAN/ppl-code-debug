@@ -10,7 +10,7 @@ app.post("/check-grammar", (req, res) => {
   const input = req.body.input;
 
   // Gọi script Python với input
-  const pythonProcess = spawn("python3", ["grammar_checker.py", input]);
+  const pythonProcess = spawn("py", ["grammar_checker.py", input]);
 
   let result = "";
   let error = "";
