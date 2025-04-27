@@ -1,8 +1,8 @@
 import sys
 import json
 from antlr4 import *
-from UseEffectGrammarLexer import UseEffectGrammarLexer
-from UseEffectGrammarParser import UseEffectGrammarParser
+from codeDebugLexer import codeDebugLexer
+from codeDebugParser import codeDebugParser
 from antlr4.error.ErrorListener import ErrorListener
 
 class MyErrorListener(ErrorListener):
@@ -14,22 +14,25 @@ class MyErrorListener(ErrorListener):
 
 def check_grammar(input_text):
     input_stream = InputStream(input_text)
-    lexer = UseEffectGrammarLexer(input_stream)
+    lexer = codeDebugLexer(input_stream)
     stream = CommonTokenStream(lexer)
-    parser = UseEffectGrammarParser(stream)
+    parser = codeDebugParser(stream)
     
     error_listener = MyErrorListener()
     parser.removeErrorListeners()
     parser.addErrorListener(error_listener)
     
-    # Gọi rule khởi đầu (prog)
-    parser.prog()
+    parser.program()
     
     if error_listener.errors:
         return {"success": False, "errors": error_listener.errors}
     return {"success": True, "message": "Valid useEffect syntax"}
 
 if __name__ == '__main__':
+    if len(sys.argv) < 2:
+        print(json.dumps({"success": False, "error": "No input provided. Please provide a useEffect code string."}))
+        sys.exit(1)
+    
     input_text = sys.argv[1]
     result = check_grammar(input_text)
     print(json.dumps(result))
