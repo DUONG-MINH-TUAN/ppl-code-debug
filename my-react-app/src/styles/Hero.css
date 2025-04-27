@@ -1,35 +1,350 @@
 .hero {
     text-align: center;
     margin-bottom: 40px;
+    position: relative;
+    overflow: hidden;
 }
 
+/* Robot container with animations */
+.robot-container {
+    position: relative;
+    display: inline-block;
+    margin: 30px 0;
+    cursor: pointer;
+    transform: translateY(30px);
+    opacity: 0;
+    transition: transform 0.5s ease, opacity 0.5s ease;
+}
+
+.robot-container.animated {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+/* Robot background circuit animations */
+.robot-background {
+    position: absolute;
+    width: 250px;
+    height: 250px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: -1;
+}
+
+.circuit-line {
+    position: absolute;
+    background: linear-gradient(90deg, rgba(76,175,255,0) 0%, rgba(76,175,255,0.5) 50%, rgba(76,175,255,0) 100%);
+    height: 2px;
+    opacity: 0.6;
+    border-radius: 1px;
+}
+
+.line1 {
+    width: 80px;
+    top: 30%;
+    left: 20%;
+    transform: rotate(30deg);
+    animation: pulseLine 4s infinite;
+}
+
+.line2 {
+    width: 60px;
+    bottom: 40%;
+    right: 30%;
+    transform: rotate(-45deg);
+    animation: pulseLine 3s infinite 1s;
+}
+
+.line3 {
+    width: 70px;
+    bottom: 30%;
+    left: 25%;
+    transform: rotate(60deg);
+    animation: pulseLine 5s infinite 0.5s;
+}
+
+.circuit-dot {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgba(76,175,255,0.8);
+    box-shadow: 0 0 8px rgba(76,175,255,0.6);
+}
+
+.dot1 {
+    top: 20%;
+    right: 30%;
+    animation: pulseGlow 3s infinite;
+}
+
+.dot2 {
+    bottom: 25%;
+    left: 35%;
+    animation: pulseGlow 4s infinite 1s;
+}
+
+.dot3 {
+    top: 50%;
+    right: 25%;
+    animation: pulseGlow 3.5s infinite 0.5s;
+}
+
+@keyframes pulseLine {
+    0% { opacity: 0.2; width: 0; }
+    50% { opacity: 0.8; width: 100%; }
+    100% { opacity: 0.2; width: 0; }
+}
+
+@keyframes pulseGlow {
+    0% { transform: scale(1); opacity: 0.6; }
+    50% { transform: scale(1.5); opacity: 1; }
+    100% { transform: scale(1); opacity: 0.6; }
+}
+
+/* Glow effect behind the robot */
+.robot-glow {
+    position: absolute;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(76,175,255,0.4) 0%, rgba(76,175,255,0) 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: -1;
+    animation: glowPulse 4s ease-in-out infinite;
+}
+
+@keyframes glowPulse {
+    0% { opacity: 0.5; width: 140px; height: 140px; }
+    50% { opacity: 0.8; width: 160px; height: 160px; }
+    100% { opacity: 0.5; width: 140px; height: 140px; }
+}
+
+.robot-container.hovering .robot-glow {
+    animation: none;
+    width: 170px;
+    height: 170px;
+    opacity: 0.9;
+    box-shadow: 0 0 20px rgba(76, 175, 255, 0.7);
+}
+
+/* Robot wrapper for all robot parts */
+.robot-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+/* Robot image styling */
 .robot {
-    max-width: 150px; /* Set to 150px to shrink the image */
-    max-height: 150px; /* Set to 150px to shrink the image */
+    max-width: 150px;
+    max-height: 150px;
     width: auto;
     height: auto;
-    margin-bottom: 20px; /* Space between the image and the greeting message */
-    border-radius: 10px; /* Optional: Rounded corners for the image */
+    border-radius: 10px;
+    filter: drop-shadow(0px 5px 15px rgba(0, 0, 0, 0.2));
+    transition: all 0.3s ease;
+    transform-origin: bottom center;
+    animation: float 6s ease-in-out infinite;
+    z-index: 2;
 }
 
+/* Enhanced Robot floating animation with increased movement */
+@keyframes float {
+    0% { transform: translateY(0px) rotate(0deg); }
+    25% { transform: translateY(-30px) rotate(2deg); }
+    50% { transform: translateY(0px) rotate(0deg); }
+    75% { transform: translateY(-25px) rotate(-2deg); }
+    100% { transform: translateY(0px) rotate(0deg); }
+}
+
+/* Robot hover effect */
+.robot-container.hovering .robot {
+    transform: scale(1.05) rotate(5deg);
+    filter: drop-shadow(0px 8px 20px rgba(76, 175, 255, 0.4));
+    animation-play-state: paused;
+}
+
+/* Robot eyes (position this based on your robot image) */
+.robot-eyes {
+    position: absolute;
+    width: 30px;
+    height: 10px;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 3;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.robot-eyes.blink {
+    opacity: 1;
+}
+
+
+/* Floating particles around robot */
+.particles {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: -1;
+}
+
+.particle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: rgba(76,175,255,0.5);
+    box-shadow: 0 0 5px rgba(76,175,255,0.3);
+}
+
+.p1 {
+    top: 20%;
+    left: 10%;
+    animation: particleFloat 10s infinite linear;
+}
+
+.p2 {
+    top: 70%;
+    right: 15%;
+    width: 6px;
+    height: 6px;
+    animation: particleFloat 8s infinite 1s linear reverse;
+}
+
+.p3 {
+    bottom: 10%;
+    left: 20%;
+    width: 4px;
+    height: 4px;
+    animation: particleFloat 12s infinite 2s linear;
+}
+
+.p4 {
+    top: 40%;
+    right: 10%;
+    animation: particleFloat 9s infinite 3s linear;
+}
+
+.p5 {
+    bottom: 30%;
+    left: 30%;
+    width: 5px;
+    height: 5px;
+    animation: particleFloat 11s infinite 4s linear reverse;
+}
+
+.p6 {
+    top: 10%;
+    right: 30%;
+    width: 3px;
+    height: 3px;
+    animation: particleFloat 13s infinite 2.5s linear;
+}
+
+@keyframes particleFloat {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    25% { transform: translate(10px, -15px) rotate(90deg); }
+    50% { transform: translate(25px, 0) rotate(180deg); }
+    75% { transform: translate(10px, 15px) rotate(270deg); }
+    100% { transform: translate(0, 0) rotate(360deg); }
+}
+
+/* Robot tooltip */
+.robot-tooltip {
+    position: absolute;
+    background-color: white;
+    color: #333;
+    padding: 10px 15px;
+    border-radius: 10px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    top: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: 200px;
+    font-weight: 500;
+    font-size: 14px;
+    opacity: 0;
+    animation: fadeInTooltip 0.3s forwards;
+    z-index: 10;
+}
+
+.robot-tooltip:after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    margin-left: -10px;
+    border-width: 10px 10px 0;
+    border-style: solid;
+    border-color: white transparent transparent transparent;
+}
+
+@keyframes fadeInTooltip {
+    from { opacity: 0; transform: translate(-50%, 10px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* Text animations */
 .hero h1 {
     font-size: 36px;
     font-weight: 600;
     color: #000000;
     margin-bottom: 8px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
 .hero p {
     font-size: 24px;
     color: #666;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.5s ease 0.2s, transform 0.5s ease 0.2s;
 }
 
-/* Change the greeting message color to white in dark mode */
+.hero h1.fade-in,
+.hero p.fade-in-delay {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Dark mode adjustments */
 body.dark-mode .hero h1 {
     color: #fff;
 }
 
-/* Adjust the <p> color in dark mode for better contrast */
 body.dark-mode .hero p {
     color: #ccc;
+}
+
+body.dark-mode .robot-tooltip {
+    background-color: #333;
+    color: #fff;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-mode .robot-tooltip:after {
+    border-color: #333 transparent transparent transparent;
+}
+
+body.dark-mode .robot-glow {
+    background: radial-gradient(circle, rgba(76,175,255,0.3) 0%, rgba(76,175,255,0) 70%);
+}
+
+body.dark-mode .circuit-line {
+    background: linear-gradient(90deg, rgba(76,175,255,0) 0%, rgba(76,175,255,0.4) 50%, rgba(76,175,255,0) 100%);
+}
+
+body.dark-mode .robot-background {
+    opacity: 0.8;
 }
