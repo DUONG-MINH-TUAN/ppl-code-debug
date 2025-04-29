@@ -1,9 +1,20 @@
-function Hi(hello) {
-    const [temp, setTemp] = useState(0);
+import {useEffect} from react;
+function Hi(hello,hi,hello,hello) {
+    const [temp, setTemp] = useState(['1','2','3']);
+    const hello = () => {useEffect(()=>{
+        console.log("hello");
+    },[])console.log("hello");};
+    useEffect(()=>{
+        console.log("hello");
+    },[])
+    useCallback(()=>{
+        console.log("hello");
+    },[])
     return(
         <> 
             <div>
                 <div>
+                    <div></div>
                 </div>
             </div>
         </>
