@@ -10,6 +10,7 @@ function Hi(hello,hi,hello,hello) {
     useCallback(()=>{
         console.log("hello");
     },[])
+    const n = 123n;
     return(
         <> 
             <div>

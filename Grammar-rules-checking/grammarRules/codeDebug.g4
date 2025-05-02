@@ -19,6 +19,9 @@ body_function: LEFT_BRACE content* RIGHT_BRACE;
 // content of the body of the function
 content:    stateSetter (SEMICOLON)?
         |   useEffectCall (SEMICOLON)?
+        |   bigIntDeclaration (SEMICOLON)?
+        |   numberDeclaration (SEMICOLON)?
+        |   stringDeclaration (SEMICOLON)?
         |   arrowFunction (SEMICOLON)?
         |   consoleCommand (SEMICOLON)?
         |   useCallbackCall (SEMICOLON)?    
@@ -65,8 +68,30 @@ stringDeclaration: variableTypes identifierValue+ EQUAL stringValue;
 numberDeclaration: variableTypes identifierValue+ EQUAL NUMBER+;
 
 // boolean
-booleanDeclaration: variableTypes identifierValue+ EQUAL 
+booleanDeclaration: variableTypes identifierValue+ EQUAL boolean;
 boolean: TRUE | FALSE;
+
+// bigInt 
+bigIntDeclaration: variableTypes identifierValue+ EQUAL BIGINT_LITERAL;  
+
+//Do not use the BIGINT TOKEN with the value of 'n' in isolation as it may cause ambiguity.
+
+// undefined value
+undefinedDeclaration: variableTypes identifierValue+;
+
+// null value
+nullDeclaration: variableTypes identifierValue+ EQUAL NULL;
+
+// symbol value
+symbolDeclaration: variableTypes identifierValue+ EQUAL SYMBOL_FUNC;
+
+// array declaration
+arrayDeclaration: variableTypes identifierValue+ EQUAL array;
+
+// date declaration 
+dateDeclaration: variableTypes identifierValue+ EQUAL 
+
+
 
 //hook declaration
 
@@ -111,9 +136,14 @@ CONSOLE:'console';
 LOG:'log';
 TRUE:'true';
 FALSE:'false';
+NULL:'null';
+BIGINT_LITERAL: [0-9]+ 'n';
+
 
 FUNCTION: 'function';
 EXPORT: 'export default';
+SYMBOL_FUNC:'Symbol()';
+
 
 USE_EFFECT:'useEffect';
 USE_STATE:'useState';
