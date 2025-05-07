@@ -14,13 +14,12 @@ app.post("/check-grammar", (req, res) => {
     __dirname,
     "..",
     "..",
-    "Grammar-rule-checking",
+    "Grammar-rules-checking",
     "grammarRules",
     "run.py"
   );
 
-  const pythonProcess = spawn("py", ["grammar_checker.py", input]);
-
+  const pythonProcess = spawn("py", [pythonScriptPath, input]);
   // Gọi script Python với đường dẫn chính xác
   // const pythonProcess = spawn("py", [pythonScriptPath, input]);
 
