@@ -4,6 +4,7 @@
   min-height: 100vh;
   width: 100%;
   position: relative;
+  -webkit-overflow-scrolling: touch; /* Enable smooth scrolling on iOS */
 }
 
 .main-content {
@@ -12,12 +13,111 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 100px 20px 0; /* Increased padding-top from 40px to 80px to push content down */
+  padding: 100px 20px 0;
   max-width: 800px;
   margin: 0 auto;
   width: 100%;
+  -webkit-overflow-scrolling: touch; /* Enable smooth scrolling on iOS */
 }
 
 body.dark-mode .main-content {
   color: #fff;
+}
+
+/* New styles for chat transition */
+.chat-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  transition: all 0.5s ease;
+}
+
+/* When hero is shown, position chat input at bottom */
+.chat-section:not(.active) {
+  margin-top: auto;
+}
+
+/* When chat is active, take full space */
+.chat-section.active {
+  flex: 1;
+  display: flex;
+  height: 100%;
+}
+
+/* Animation for hero exit and chat entry */
+.hero {
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+/* When chat is active, form will expand */
+.chat-container {
+  transition: all 0.5s ease;
+  height: auto;
+}
+
+.chat-section.active .chat-container {
+  height: 100%;
+}
+
+/* Hide scrollbars while maintaining scroll functionality */
+.chat-messages, 
+.main-content, 
+.app-container {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  -webkit-overflow-scrolling: touch; /* Enable smooth scrolling on iOS */
+}
+
+/* Chrome, Safari and Opera */
+.chat-messages::-webkit-scrollbar, 
+.main-content::-webkit-scrollbar, 
+.app-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ensure chat input has visible scrollbar */
+.chat-input {
+  scrollbar-width: auto; /* Firefox */
+  -ms-overflow-style: auto; /* IE and Edge */
+}
+
+.chat-input::-webkit-scrollbar {
+  display: block; /* Chrome, Safari, Opera */
+  width: 8px;
+}
+
+.chat-input::-webkit-scrollbar-thumb {
+  background-color: #888;
+  border-radius: 4px;
+}
+
+.chat-input::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+/* For any other scrollable elements, keep scrollbars hidden */
+*:not(.chat-input)::-webkit-scrollbar {
+  display: none;
+}
+
+*:not(.chat-input) {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* iOS-specific fixes */
+@supports (-webkit-touch-callout: none) {
+  .chat-messages, 
+  .main-content, 
+  .app-container {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Fix for iOS momentum scrolling */
+  body {
+    overscroll-behavior-y: none;
+    -webkit-overscroll-behavior-y: none;
+  }
 }

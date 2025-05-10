@@ -5,11 +5,28 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vite +-+ React</title>
+  <title>Vite + React</title>
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <div class="app-container">
+      <div class="main-content">
+        <div class="chat-section">
+          <div class="chat-container">
+            <div class="chat-messages">
+              <!-- Chat bubbles/messages go here -->
+              <div class="message">User: I understand. How can I assist further?</div>
+              <div class="message">Bot: I see what you mean. Here's what I think...</div>
+            </div>
+            <div class="chat-input">
+              <input type="text" placeholder="Share your code for a quick fix" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 

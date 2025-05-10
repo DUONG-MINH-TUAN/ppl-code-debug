@@ -1,0 +1,62 @@
+/* Thêm hiệu ứng trong suốt ban đầu cho container */
+.chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    margin-bottom: 20px;
+    transition: all 0.5s ease-in-out;
+    border-radius: 20px;
+    overflow: hidden;
+    opacity: 1; /* Mức độ trong suốt ban đầu */
+}
+
+/* Khi chat active, container trở nên hoàn toàn rõ ràng */
+.chat-section.active .chat-container {
+    opacity: 1; /* Hoàn toàn rõ ràng khi active */
+}
+
+/* Đảm bảo chat-messages vẫn có hiệu ứng riêng */
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    background-color: #FFEBCD;
+    border-radius: 18px 18px 0 0;
+    opacity: 0;
+    max-height: 0;
+    transition: all 0.5s ease-in-out;
+    display: none;
+    scrollbar-width: thin; /* Firefox: scrollbar mỏng */
+    scrollbar-color: transparent transparent; /* Firefox: trong suốt */
+}
+.dark-mode .chat-messages {
+    background-color: #121212; /* Màu nền đen */
+}
+
+/* Tùy chỉnh scrollbar cho Chrome, Safari, Edge */
+.chat-messages::-webkit-scrollbar {
+    width: 6px; /* Độ rộng mỏng */
+}
+
+.chat-messages::-webkit-scrollbar-track {
+    background: transparent; /* Đường nền trong suốt */
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2); /* Thanh cuộn mờ */
+    border-radius: 10px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.4); /* Thanh cuộn đậm hơn khi hover */
+}
+
+/* Khi chat active, hiển thị messages */
+.chat-section.active .chat-messages {
+    opacity: 1;
+    max-height: calc(100vh - 220px);
+    display: block;
+}

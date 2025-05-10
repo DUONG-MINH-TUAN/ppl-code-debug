@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import '../styles/ChatInput.css';
 
-function ChatInput() {
+function ChatInput({ onSendMessage }) {
   // Create refs for file input and textarea
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
@@ -55,8 +55,8 @@ function ChatInput() {
   const handleSubmit = (event) => {
     event.preventDefault();
     if (inputValue.trim()) {
-      console.log('Sending message:', inputValue);
-      // Add logic to send the message
+      // Pass the message up to parent component
+      onSendMessage(inputValue.trim());
       setInputValue(''); // Clear input after sending
       
       // Reset height after clearing

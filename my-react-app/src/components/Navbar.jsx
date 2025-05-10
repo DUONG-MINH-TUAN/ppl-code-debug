@@ -30,11 +30,11 @@ function Navbar({ onDarkModeToggle, isDarkMode }) {
         <div className="nav-actions">
           <button className="action-button notification-btn">
             <span className="icon">📬</span>
-            <span className="notification-badge">3</span>
+            <span className="notification-badge">1</span>
           </button>
           
           <button className="action-button dark-mode-toggle" onClick={onDarkModeToggle}>
-            <span className="icon">{isDarkMode ? '🌅' : '🌚'}</span>
+            <span className="icon">{isDarkMode ? '💡' : '🌚'}</span>
           </button>
           
           <div className="user-avatar-container">
