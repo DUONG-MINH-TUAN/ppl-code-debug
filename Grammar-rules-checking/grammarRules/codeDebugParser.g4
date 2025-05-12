@@ -1,15 +1,25 @@
-grammar codeDebug;
+parser grammar codeDebugParser;
+
+options {
+    tokenVocab=codeDebugLexer;  // Tham chiếu đến lexer grammar
+}
 
 // Parser rules 
 program: main_structure; 
 
 // syntax
-main_structure: (import_statement)? function_declaration identifierValue+ parameter_list body_function;
+main_structure: (import_statement)? function_declaration IDENTIFIER parameter_list body_function;
+
+//main_structure: testContent;
+
+//testContent: dateDeclaration (SEMICOLON)? | return_statement (SEMICOLON)?;
+//main_structure: HELLO ;
+
 
 //parameter in functional component
 parameter_list:     LEFT_PARENTHESIS parameter* RIGHT_PARENTHESIS 
                 |   LEFT_PARENTHESIS LEFT_BRACE parameter* RIGHT_BRACE RIGHT_PARENTHESIS;
-parameter: identifierValue (COMMA identifierValue)*;    
+parameter: IDENTIFIER (COMMA IDENTIFIER)*;    
 //function declaration
 function_declaration:FUNCTION | EXPORT FUNCTION;
 
@@ -24,7 +34,8 @@ content:    stateSetter (SEMICOLON)?
         |   stringDeclaration (SEMICOLON)?
         |   arrowFunction (SEMICOLON)?
         |   consoleCommand (SEMICOLON)?
-        |   useCallbackCall (SEMICOLON)?    
+        |   useCallbackCall (SEMICOLON)?
+        |   dateDeclaration (SEMICOLON)?   
         |   return_statement (SEMICOLON)?;
 
 
@@ -36,25 +47,28 @@ numberArray: NUMBER (COMMA NUMBER)*;
 stringArray: stringValue (COMMA stringValue)*;
 arrayValue: numberArray | stringArray;
 stringValue: 
-                DOUBLE_QUOTE identifierValue* DOUBLE_QUOTE 
-        |       SINGLE_QUOTE identifierValue* SINGLE_QUOTE
+                DOUBLE_QUOTE DOUBLE_QUOTE 
+        |       SINGLE_QUOTE SINGLE_QUOTE
         |       DOUBLE_QUOTE NUMBER* DOUBLE_QUOTE
         |       SINGLE_QUOTE NUMBER* SINGLE_QUOTE;
-identifierValue: IDENTIFIER_LOWERCASE | IDENTIFIER_UPPERCASE;
+
 
 //element
-element: openTag elementContent* closeTag | emptyFragment;  
-emptyFragment: LEFT_ANGLE_BRACKET RIGHT_ANGLE_BRACKET LEFT_ANGLE_BRACKET SLASH RIGHT_ANGLE_BRACKET;
-
+element: openTag elementContent* closeTag
+    | fragmentOpen elementContent* fragmentClose
+    | emptyFragment;
+emptyFragment: LEFT_ANGLE_BRACKET RIGHT_ANGLE_BRACKET LEFT_ANGLE_BRACKET SLASH RIGHT_ANGLE_BRACKET; // <></>
+fragmentOpen: LEFT_ANGLE_BRACKET RIGHT_ANGLE_BRACKET; // <>
+fragmentClose: LEFT_ANGLE_BRACKET SLASH RIGHT_ANGLE_BRACKET; // </>
 //open tag
-openTag: LEFT_ANGLE_BRACKET identifierValue* RIGHT_ANGLE_BRACKET;
+openTag: LEFT_ANGLE_BRACKET IDENTIFIER RIGHT_ANGLE_BRACKET;
 
 //close tag
-closeTag: LEFT_ANGLE_BRACKET SLASH identifierValue* RIGHT_ANGLE_BRACKET;
+closeTag: LEFT_ANGLE_BRACKET SLASH IDENTIFIER RIGHT_ANGLE_BRACKET;
 
 //content of the element
 elementContent: element | valueIndicator;
-valueIndicator: LEFT_BRACE identifierValue+ RIGHT_BRACE;  
+valueIndicator: LEFT_BRACE IDENTIFIER RIGHT_BRACE;  
 
 
 //variable declaration
@@ -62,44 +76,43 @@ valueIndicator: LEFT_BRACE identifierValue+ RIGHT_BRACE;
 // primitive data
 
 // string
-stringDeclaration: variableTypes identifierValue+ EQUAL stringValue;
+stringDeclaration: variableTypes IDENTIFIER EQUAL stringValue;
 
 // number
-numberDeclaration: variableTypes identifierValue+ EQUAL NUMBER+;
+numberDeclaration: variableTypes IDENTIFIER EQUAL NUMBER+;
 
 // boolean
-booleanDeclaration: variableTypes identifierValue+ EQUAL boolean;
+booleanDeclaration: variableTypes IDENTIFIER EQUAL boolean;
 boolean: TRUE | FALSE;
 
 // bigInt 
-bigIntDeclaration: variableTypes identifierValue+ EQUAL BIGINT_LITERAL;  
+bigIntDeclaration: variableTypes IDENTIFIER EQUAL BIGINT_LITERAL;  
 
 //Do not use the BIGINT TOKEN with the value of 'n' in isolation as it may cause ambiguity.
 
 // undefined value
-undefinedDeclaration: variableTypes identifierValue+;
+undefinedDeclaration: variableTypes IDENTIFIER;
 
 // null value
-nullDeclaration: variableTypes identifierValue+ EQUAL NULL;
+nullDeclaration: variableTypes IDENTIFIER EQUAL NULL;
 
 // symbol value
-symbolDeclaration: variableTypes identifierValue+ EQUAL SYMBOL_FUNC;
+symbolDeclaration: variableTypes IDENTIFIER EQUAL SYMBOL_FUNC;
 
 // array declaration
-arrayDeclaration: variableTypes identifierValue+ EQUAL array;
+arrayDeclaration: variableTypes IDENTIFIER EQUAL array;
 
 // date declaration 
-dateDeclaration: variableTypes identifierValue+ EQUAL 
-
+dateDeclaration: variableTypes IDENTIFIER EQUAL NEW SPACE DATE_FUNC;
 
 
 //hook declaration
 
 // useState 
 stateSetter: variableTypes statePair EQUAL USE_STATE initialValue;
-statePair: LEFT_SQUARE_BRACKET identifierValue+ COMMA identifierValue+ RIGHT_SQUARE_BRACKET;
+statePair: LEFT_SQUARE_BRACKET IDENTIFIER COMMA IDENTIFIER RIGHT_SQUARE_BRACKET;
 initialValue: LEFT_PARENTHESIS valueForInitialization* RIGHT_PARENTHESIS;
-valueForInitialization: identifierValue+ | NUMBER+ | array | stringValue;
+valueForInitialization: IDENTIFIER | NUMBER+ | array | stringValue;
 array: LEFT_SQUARE_BRACKET arrayValue* RIGHT_SQUARE_BRACKET;
 
 // useEffect
@@ -111,7 +124,7 @@ dependencyArray: LEFT_SQUARE_BRACKET parameter* RIGHT_SQUARE_BRACKET;
 useCallbackCall: USE_CALLBACK LEFT_PARENTHESIS callbackFunction COMMA dependencyArray RIGHT_PARENTHESIS;
 
 // arrow function
-arrowFunction: variableTypes identifierValue+ EQUAL parameter_list IMPLIE LEFT_BRACE content* RIGHT_BRACE;   
+arrowFunction: variableTypes IDENTIFIER EQUAL parameter_list IMPLIE LEFT_BRACE content* RIGHT_BRACE;   
 
 //normal function
 
@@ -123,53 +136,3 @@ return_statement: RETURN LEFT_PARENTHESIS element RIGHT_PARENTHESIS;
 
 //console.log command
 consoleCommand: CONSOLE DOT LOG LEFT_PARENTHESIS stringValue RIGHT_PARENTHESIS;
-
-//tokens
-RETURN: 'return';
-CONST: 'const';
-VAR: 'var';
-LET:'let';
-IMPORT:'import';
-FROM:'from';
-REACT:'react';
-CONSOLE:'console';
-LOG:'log';
-TRUE:'true';
-FALSE:'false';
-NULL:'null';
-BIGINT_LITERAL: [0-9]+ 'n';
-
-
-FUNCTION: 'function';
-EXPORT: 'export default';
-SYMBOL_FUNC:'Symbol()';
-
-
-USE_EFFECT:'useEffect';
-USE_STATE:'useState';
-USE_CALLBACK:'useCallback';
-USE_MEMO:'useMemo';
-
-LEFT_PARENTHESIS:'(';
-RIGHT_PARENTHESIS:')';
-LEFT_BRACE:'{';
-RIGHT_BRACE:'}';
-LEFT_SQUARE_BRACKET:'[';
-RIGHT_SQUARE_BRACKET:']';
-COMMA: ',';
-EQUAL:'=';
-SINGLE_QUOTE:'\'';
-DOUBLE_QUOTE:'\u0022';
-LEFT_ANGLE_BRACKET: '<';
-RIGHT_ANGLE_BRACKET:'>';
-SLASH: '/';
-SEMICOLON: ';';
-IMPLIE:'=>';
-DOT:'.';
-
-IDENTIFIER_UPPERCASE: [A-Z];
-IDENTIFIER_LOWERCASE: [a-z];
-
-NUMBER:[0-9]; 
-
-WS: [ \t\r\n]+ -> skip;
