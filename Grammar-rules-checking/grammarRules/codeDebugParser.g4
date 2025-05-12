@@ -105,7 +105,7 @@ symbolDeclaration: variableTypes IDENTIFIER EQUAL SYMBOL_FUNC;
 arrayDeclaration: variableTypes IDENTIFIER EQUAL array;
 
 // date declaration 
-dateDeclaration: variableTypes IDENTIFIER EQUAL NEW SPACE DATE_FUNC;
+dateDeclaration: variableTypes IDENTIFIER EQUAL NEW DATE_FUNC;
 
 
 //hook declaration

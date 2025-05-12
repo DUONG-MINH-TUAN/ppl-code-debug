@@ -11,7 +11,7 @@ function Hi(hello,hi,hello,hello) {
         console.log("hello");
     },[])
     const n = 123n;
-
+    const o = new Date();
     return(
         <> 
             <div>
