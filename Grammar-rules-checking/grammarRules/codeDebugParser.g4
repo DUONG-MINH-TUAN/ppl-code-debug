@@ -49,6 +49,8 @@ arrayValue: numberArray | stringArray;
 stringValue: 
                 DOUBLE_QUOTE DOUBLE_QUOTE 
         |       SINGLE_QUOTE SINGLE_QUOTE
+        |       DOUBLE_QUOTE IDENTIFIER DOUBLE_QUOTE 
+        |       SINGLE_QUOTE IDENTIFIER SINGLE_QUOTE
         |       DOUBLE_QUOTE NUMBER* DOUBLE_QUOTE
         |       SINGLE_QUOTE NUMBER* SINGLE_QUOTE;
 

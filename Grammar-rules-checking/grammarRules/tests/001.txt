@@ -1,7 +1,17 @@
-
+import {useEffect} from react;
 function Hi(hello,hi,hello,hello) {
-    const n =1;
-    
+    const [temp, setTemp] = useState(['1','2','3']);
+    const hello = () => {useEffect(()=>{
+        console.log("hello");
+    },[])console.log("hello");};
+    useEffect(()=>{
+        console.log("hello");
+    },[])
+    useCallback(()=>{
+        console.log("hello");
+    },[])
+    const n = 123n;
+
     return(
         <> 
             <div>
@@ -11,4 +21,4 @@ function Hi(hello,hi,hello,hello) {
             </div>
         </>
     )
-}
+} 
