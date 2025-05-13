@@ -83,7 +83,7 @@ def runTest():
             self.errors.append(error_message)
             print(error_message)
 
-    filename = '003.txt'
+    filename = '001.txt'
     inputFile = os.path.join(DIR, './tests', filename)    
 
     with open(inputFile, 'r', encoding='utf-8') as f:
