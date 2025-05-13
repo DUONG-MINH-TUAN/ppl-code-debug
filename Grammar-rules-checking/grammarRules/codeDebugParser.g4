@@ -1,20 +1,14 @@
 parser grammar codeDebugParser;
 
 options {
-    tokenVocab=codeDebugLexer;  // Tham chiếu đến lexer grammar
+    tokenVocab=codeDebugLexer;  
 }
 
 // Parser rules 
 program: main_structure; 
 
-// syntax
+
 main_structure: (import_statement)? function_declaration IDENTIFIER parameter_list body_function;
-
-//main_structure: testContent;
-
-//testContent: dateDeclaration (SEMICOLON)? | return_statement (SEMICOLON)?;
-//main_structure: HELLO ;
-
 
 //parameter in functional component
 parameter_list:     LEFT_PARENTHESIS parameter* RIGHT_PARENTHESIS 
@@ -27,16 +21,17 @@ function_declaration:FUNCTION | EXPORT FUNCTION;
 body_function: LEFT_BRACE content* RIGHT_BRACE; 
 
 // content of the body of the function
-content:    stateSetter (SEMICOLON)?
-        |   useEffectCall (SEMICOLON)?
-        |   bigIntDeclaration (SEMICOLON)?
-        |   numberDeclaration (SEMICOLON)?
-        |   stringDeclaration (SEMICOLON)?
-        |   arrowFunction (SEMICOLON)?
-        |   consoleCommand (SEMICOLON)?
-        |   useCallbackCall (SEMICOLON)?
-        |   dateDeclaration (SEMICOLON)?   
-        |   return_statement (SEMICOLON)?;
+content:    stateSetter stat_breakDown
+        |   useEffectCall stat_breakDown
+        |   bigIntDeclaration stat_breakDown
+        |   numberDeclaration stat_breakDown
+        |   stringDeclaration stat_breakDown
+        |   arrowFunction stat_breakDown
+        |   arrayDeclaration stat_breakDown
+        |   consoleCommand stat_breakDown
+        |   useCallbackCall stat_breakDown
+        |   dateDeclaration stat_breakDown   
+        |   return_statement stat_breakDown;
 
 
 // types of variable
@@ -49,6 +44,8 @@ arrayValue: numberArray | stringArray;
 stringValue: 
                 DOUBLE_QUOTE DOUBLE_QUOTE 
         |       SINGLE_QUOTE SINGLE_QUOTE
+        |       DOUBLE_QUOTE IDENTIFIER DOUBLE_QUOTE 
+        |       SINGLE_QUOTE IDENTIFIER SINGLE_QUOTE
         |       DOUBLE_QUOTE NUMBER* DOUBLE_QUOTE
         |       SINGLE_QUOTE NUMBER* SINGLE_QUOTE;
 
@@ -103,7 +100,7 @@ symbolDeclaration: variableTypes IDENTIFIER EQUAL SYMBOL_FUNC;
 arrayDeclaration: variableTypes IDENTIFIER EQUAL array;
 
 // date declaration 
-dateDeclaration: variableTypes IDENTIFIER EQUAL NEW SPACE DATE_FUNC;
+dateDeclaration: variableTypes IDENTIFIER EQUAL NEW DATE_FUNC;
 
 
 //hook declaration
@@ -131,8 +128,19 @@ arrowFunction: variableTypes IDENTIFIER EQUAL parameter_list IMPLIE LEFT_BRACE c
 
 //statement
 hook: USE_EFFECT | USE_CALLBACK | USE_MEMO | USE_STATE;
-import_statement: IMPORT LEFT_BRACE hook* RIGHT_BRACE FROM REACT (SEMICOLON)?;
+import_statement: IMPORT LEFT_BRACE hook* RIGHT_BRACE FROM REACT stat_breakDown;
 return_statement: RETURN LEFT_PARENTHESIS element RIGHT_PARENTHESIS;
 
 //console.log command
-consoleCommand: CONSOLE DOT LOG LEFT_PARENTHESIS stringValue RIGHT_PARENTHESIS;
+consoleCommand:     CONSOLE DOT LOG LEFT_PARENTHESIS (stringValue)? RIGHT_PARENTHESIS
+                // console log có object ở trong (eg: console.log(date))
+                |   CONSOLE DOT LOG LEFT_PARENTHESIS IDENTIFIER RIGHT_PARENTHESIS;
+
+
+
+// Statement Breakdown
+stat_breakDown: NEWLINE (SEMICOLON)? | SEMICOLON;
+
+
+// Error Handling
+errorRule: .+? (SEMICOLON | RIGHT_BRACE | EOF);

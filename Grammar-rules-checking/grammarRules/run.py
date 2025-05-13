@@ -1,104 +1,3 @@
-# # import sys, os
-# # import subprocess
-# # import unittest
-# # from antlr4 import *
-
-
-# # # Define your variables
-# # DIR = os.path.dirname(__file__)
-# # ANTLR_JAR = 'C:\\Users\\Admin\\Documents\\anltr4.9.2\\antlr4-4.9.2-complete.jar'
-# # CPL_Dest = 'CompiledFiles'
-# # SRC = 'codeDebug.g4'
-# # TESTS = os.path.join(DIR, './tests')
-
-
-# # def printUsage():
-# #     print('python Hello.py gen')
-# #     print('python Hello.py test')
-
-
-# # def printBreak():
-# #     print('-----------------------------------------------')
-
-
-# # def generateAntlr2Python():
-# #     print('Antlr4 is running...')
-# #     subprocess.run(['java', '-jar', ANTLR_JAR, '-o', CPL_Dest, '-no-listener', '-Dlanguage=Python3', SRC])
-# #     print('Generate successfully')
-
-# # def runTest():
-# #     print('Running testcases...')
-    
-# #     from CompiledFiles.codeDebugLexer import codeDebugLexer
-# #     from CompiledFiles.codeDebugParser import codeDebugParser
-# #     from antlr4.error.ErrorListener import ErrorListener
-
-# #     class CustomErrorListener(ErrorListener):
-# #         def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-# #             print(f"Input rejected: {msg}")
-# #             exit(1)  # Exit the program with an error
-
-# #     filename = '001.txt'
-# #     inputFile = os.path.join(DIR, './tests', filename)    
-
-# #     print('List of token: ')
-# #     lexer = codeDebugLexer(FileStream(inputFile))        
-# #     tokens = []
-# #     token = lexer.nextToken()
-# #     while token.type != Token.EOF:
-# #         tokens.append(token.text)
-# #         token = lexer.nextToken()
-# #     tokens.append('<EOF>')
-# #     print(','.join(tokens))    
-
-# #     # test
-# #     input_stream = FileStream(inputFile)
-# #     lexer = codeDebugLexer(input_stream)
-# #     stream = CommonTokenStream(lexer)
-# #     parser = codeDebugParser(stream)
-# #     tree = parser.program()  # Start parsing at the `program` rule
-
-# #     # Print the parse tree (for debugging)
-# #     print(tree.toStringTree(recog=parser))
-# #     # end of test
-
-    
-# #     # Reset the input stream for parsing and catch the error
-# #     lexer = codeDebugLexer(FileStream(inputFile))
-# #     token_stream = CommonTokenStream(lexer)
-
-# #     parser = codeDebugParser(token_stream)   
-# #     parser.removeErrorListeners()
-# #     parser.addErrorListener(CustomErrorListener())    
-# #     try:
-# #         parser.program()
-# #         print("Input accepted")
-# #     except SystemExit:        
-# #         pass
-    
-# #     printBreak()
-# #     print('Run tests completely')
-
-# # def main(argv):
-# #     print('Complete jar file ANTLR  :  ' + str(ANTLR_JAR))
-# #     print('Length of arguments      :  ' + str(len(argv)))    
-# #     printBreak()
-
-# #     if len(argv) < 1:
-# #         printUsage()
-# #     elif argv[0] == 'gen':
-# #         generateAntlr2Python()    
-# #     elif argv[0] == 'test':       
-# #         runTest()
-# #     else:
-# #         printUsage()
-
-
-# # if __name__ == '__main__':
-# #     main(sys.argv[1:])     
-    
-    
-
 
 import sys, os
 import subprocess
@@ -144,12 +43,51 @@ def runTest():
 
 
     class CustomErrorListener(ErrorListener):
-        def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-            print(f"Input rejected: {msg}")
-            exit(1)  # Thoát chương trình khi có lỗi
+        def __init__(self, input_content):
+            # the list of errors 
+            self.errors = []
+            self.input_lines = input_content.splitlines()
 
-    filename = '001.txt'
+        def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
+            token_map = {
+                'RIGHT_PARENTHESIS': 'closing parenthesis `)`',
+                'LEFT_PARENTHESIS': 'opening parenthesis `(`',
+                'RIGHT_BRACE': 'closing brace `}`',
+                'LEFT_BRACE': 'opening brace `{`',
+                'SEMICOLON': 'semicolon `;`',
+                'COMMA': 'comma `,`',
+                'EQUAL': 'equals sign `=`',
+                'IMPLIE': 'arrow `=>`'
+            }
+            error_message = f"Syntax error at line {line}, column {column}: "
+            suggestion = ""
+            offending_token = offendingSymbol.text if offendingSymbol else "<unknown>"
+            if "missing" in msg:
+                missing_token = msg.split("missing ")[1].split(" at")[0].strip()
+                missing_token = token_map.get(missing_token, missing_token)
+                error_message += f"Missing {missing_token} before '{offending_token}'."
+                suggestion = f"Check and add a {missing_token} at the appropriate position."
+            elif "mismatched input" in msg:
+                expected_token = msg.split("expecting ")[1].strip() if "expecting" in msg else "<unknown>"
+                expected_token = token_map.get(expected_token, expected_token)
+                error_message += f"Found '{offending_token}' but expected {expected_token}."
+                suggestion = f"Check the syntax near '{offending_token}' and ensure {expected_token} is used correctly."
+            else:
+                error_message += msg
+                suggestion = "Review the syntax at this line."
+            if line <= len(self.input_lines):
+                error_message += f"\nLine {line}: {self.input_lines[line-1].strip()}"
+                error_message += f"\n{' ' * (column + len(str(line)) + 2)}^"
+            if suggestion:
+                error_message += f"\nSuggestion: {suggestion}"
+            self.errors.append(error_message)
+            print(error_message)
+
+    filename = '003.txt'
     inputFile = os.path.join(DIR, './tests', filename)    
+
+    with open(inputFile, 'r', encoding='utf-8') as f:
+        input_content = f.read()
 
     print('List of token: ')
     lexer = codeDebugLexer(FileStream(inputFile))        
@@ -161,73 +99,32 @@ def runTest():
     tokens.append('<EOF>')
     print(','.join(tokens))    
 
-    # Chỉ phân tích với bộ lắng nghe lỗi tùy chỉnh
+    
     lexer = codeDebugLexer(FileStream(inputFile))
     token_stream = CommonTokenStream(lexer)
     parser = codeDebugParser(token_stream)   
     parser.removeErrorListeners()
-    parser.addErrorListener(CustomErrorListener())    
+    error_listener = CustomErrorListener(input_content)
+    parser.addErrorListener(error_listener)    
+    
+    # print parse tree
     try:
         tree = parser.program()
-        print(tree.toStringTree(recog=parser))  # In cây phân tích nếu thành công
-        print("Input accepted")
+        print(tree.toStringTree(recog=parser))  
     except SystemExit:
         pass
     
+    # check if errors are existed or not  
+    if error_listener.errors:
+        print("Errors found:")
+        for error in error_listener.errors:
+            print(error)
+    else:
+        print("Input accepted")
+
+
     printBreak()
     print('Run tests completely')
-
-# def runTest():
-#     print('Running testcases...')
-    
-#     from CompiledFiles.codeDebugLexer import codeDebugLexer
-#     from CompiledFiles.codeDebugParser import codeDebugParser
-#     from antlr4.error.ErrorListener import ErrorListener
-
-#     class CustomErrorListener(ErrorListener):
-#         def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-#             print(f"Input rejected: {msg}")
-#             exit(1)  # Exit the program with an error
-
-#     filename = '001.txt'
-#     inputFile = os.path.join(DIR, './tests', filename)    
-
-#     print('List of token: ')
-#     lexer = codeDebugLexer(FileStream(inputFile))        
-#     tokens = []
-#     token = lexer.nextToken()
-#     while token.type != Token.EOF:
-#         tokens.append(token.text)
-#         token = lexer.nextToken()
-#     tokens.append('<EOF>')
-#     print(','.join(tokens))    
-
-#     # Test parsing
-#     input_stream = FileStream(inputFile)
-#     lexer = codeDebugLexer(input_stream)
-#     stream = CommonTokenStream(lexer)
-#     parser = codeDebugParser(stream)
-#     tree = parser.program()  # Start parsing at the `program` rule
-
-#     # Print the parse tree (for debugging)
-#     print(tree.toStringTree(recog=parser))
-#     # End of test
-
-#     # Reset the input stream for parsing and catch the error
-#     lexer = codeDebugLexer(FileStream(inputFile))
-#     token_stream = CommonTokenStream(lexer)
-
-#     parser = codeDebugParser(token_stream)   
-#     parser.removeErrorListeners()
-#     parser.addErrorListener(CustomErrorListener())    
-#     try:
-#         parser.program()
-#         print("Input accepted")
-#     except SystemExit:        
-#         pass
-    
-#     printBreak()
-#     print('Run tests completely')
 
 def main(argv):
     print('Complete jar file ANTLR  :  ' + str(ANTLR_JAR))
