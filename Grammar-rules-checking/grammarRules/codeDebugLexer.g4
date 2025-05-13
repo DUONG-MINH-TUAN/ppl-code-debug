@@ -43,14 +43,18 @@ SLASH: '/';
 SEMICOLON: ';';
 IMPLIE: '=>';
 DOT: '.';
-
+CARRIAGE_RETURN:'\r'*;
+LINE_FEED:'\n'+;
 
 IDENTIFIER: [a-zA-Z][a-zA-Z0-9]*;
 
 
-NUMBER: [0-9];
+NUMBER: [0-9][0-9]*;
+
+NEWLINE: CARRIAGE_RETURN LINE_FEED;
 
 WS: [ \t\r\n]+ -> skip;
+
 
 
 mode DATE_MODE;
