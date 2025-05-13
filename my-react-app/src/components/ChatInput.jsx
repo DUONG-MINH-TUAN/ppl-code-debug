@@ -1,5 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import axios from "axios";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import "../styles/ChatInput.css";
 
 function ChatInput() {
@@ -29,15 +31,49 @@ function ChatInput() {
       });
       setResult(response.data);
 
-      // Log lỗi nếu có
       if (!response.data.success) {
         console.error("Grammar check failed:", response.data.error);
+        toast.error(response.data.error, {
+          position: "top-center", // Đổi vị trí sang giữa trên
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
       } else if (!response.data.result.success) {
-        console.error("Invalid useEffect syntax:", response.data.result.errors);
+        console.error("Invalid syntax:", response.data.result.errors);
+        response.data.result.errors.forEach((error) => {
+          toast.error(error, {
+            position: "top-center", // Đổi vị trí sang giữa trên
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          });
+        });
+      } else {
+        toast.success(response.data.result.message, {
+          position: "top-center", // Đổi vị trí sang giữa trên
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        });
       }
     } catch (error) {
       setResult({ success: false, error: "Server error" });
       console.error("Error calling grammar check API:", error.message);
+      toast.error("Server error: " + error.message, {
+        position: "top-center", // Đổi vị trí sang giữa trên
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      });
     }
   };
 
@@ -59,7 +95,7 @@ function ChatInput() {
   const handleSubmit = (event) => {
     event.preventDefault();
     if (inputValue.trim()) {
-      console.log("Sending useEffect code:", inputValue);
+      console.log("Sending code:", inputValue);
       checkGrammar(inputValue);
       setInputValue("");
       setTimeout(adjustTextareaHeight, 0);
@@ -74,12 +110,20 @@ function ChatInput() {
   };
 
   return (
-    <div>
+    <div style={{ width: "100%" }}>
+      <ToastContainer
+        position="top-center" // Đặt vị trí ToastContainer ở giữa trên
+        autoClose={5000}
+        hideProgressBar={false}
+        closeOnClick
+        pauseOnHover
+        draggable
+      />
       <form className="chat-input-container" onSubmit={handleSubmit}>
         <textarea
           ref={textareaRef}
           className="chat-input"
-          placeholder="Enter useEffect code, e.g., useEffect(() => { console.log('Hello'); }, []);"
+          placeholder="Enter code, e.g., function MyComponent(props) { const [count, setCount] = useState(0); return (<div>{count}</div>); }"
           value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
@@ -135,25 +179,6 @@ function ChatInput() {
           </button>
         </div>
       </form>
-      {result && (
-        <div className="result">
-          {result.success && result.result.success ? (
-            <p style={{ color: "green" }}>{result.result.message}</p>
-          ) : (
-            <div>
-              {result.success ? (
-                <ul style={{ color: "red", margin: 0, paddingLeft: "20px" }}>
-                  {result.result.errors.map((error, index) => (
-                    <li key={index}>{error}</li>
-                  ))}
-                </ul>
-              ) : (
-                <p style={{ color: "red" }}>{result.error}</p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
