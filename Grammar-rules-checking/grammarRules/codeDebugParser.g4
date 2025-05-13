@@ -139,7 +139,7 @@ consoleCommand:     CONSOLE DOT LOG LEFT_PARENTHESIS (stringValue)? RIGHT_PARENT
 
 
 // Statement Breakdown
-stat_breakDown: NEWLINE (SEMICOLON)?;
+stat_breakDown: NEWLINE (SEMICOLON)? | SEMICOLON;
 
 
 // Error Handling
