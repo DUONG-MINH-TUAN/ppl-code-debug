@@ -1,5 +1,5 @@
-import sys
-import os
+
+import sys, os
 import subprocess
 import json
 from antlr4 import *
@@ -42,48 +42,86 @@ def runTest(input_text=None):
     from antlr4.error.ErrorListener import ErrorListener
 
     class CustomErrorListener(ErrorListener):
-        def __init__(self):
+        def __init__(self, input_content):
+            # the list of errors 
             self.errors = []
+            self.input_lines = input_content.splitlines()
 
         def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
-            self.errors.append(f"Syntax error at line {line}:{column} - {msg}")
-
-    # Kiểm tra ngữ pháp
-    try:
-        input_stream = InputStream(input_text)
-        lexer = codeDebugLexer(input_stream)
-        stream = CommonTokenStream(lexer)
-        parser = codeDebugParser(stream)
-        
-        error_listener = CustomErrorListener()
-        parser.removeErrorListeners()
-        parser.addErrorListener(error_listener)
-        
-        # In danh sách token để debug
-        print('List of tokens: ')
-        tokens = []
-        token = lexer.nextToken()
-        while token.type != Token.EOF:
-            tokens.append(token.text)
-            token = lexer.nextToken()
-        tokens.append('<EOF>')
-        print(','.join(tokens))
-
-        # Kiểm tra cú pháp toàn bộ program
-        parser.program()
-        
-        if error_listener.errors:
-            result = {"success": False, "errors": error_listener.errors}
-        else:
-            # Thêm kiểm tra cơ bản để đảm bảo là functional component hợp lệ
-            if not any("return" in line.lower() for line in input_text.split('\n')):
-                result = {"success": False, "errors": ["No return statement found in functional component"]}
+            token_map = {
+                'RIGHT_PARENTHESIS': 'closing parenthesis `)`',
+                'LEFT_PARENTHESIS': 'opening parenthesis `(`',
+                'RIGHT_BRACE': 'closing brace `}`',
+                'LEFT_BRACE': 'opening brace `{`',
+                'SEMICOLON': 'semicolon `;`',
+                'COMMA': 'comma `,`',
+                'EQUAL': 'equals sign `=`',
+                'IMPLIE': 'arrow `=>`'
+            }
+            error_message = f"Syntax error at line {line}, column {column}: "
+            suggestion = ""
+            offending_token = offendingSymbol.text if offendingSymbol else "<unknown>"
+            if "missing" in msg:
+                missing_token = msg.split("missing ")[1].split(" at")[0].strip()
+                missing_token = token_map.get(missing_token, missing_token)
+                error_message += f"Missing {missing_token} before '{offending_token}'."
+                suggestion = f"Check and add a {missing_token} at the appropriate position."
+            elif "mismatched input" in msg:
+                expected_token = msg.split("expecting ")[1].strip() if "expecting" in msg else "<unknown>"
+                expected_token = token_map.get(expected_token, expected_token)
+                error_message += f"Found '{offending_token}' but expected {expected_token}."
+                suggestion = f"Check the syntax near '{offending_token}' and ensure {expected_token} is used correctly."
             else:
-                result = {"success": True, "message": "Valid functional component syntax"}
-    except Exception as e:
-        result = {"success": False, "errors": [f"Parsing error: {str(e)}"]}
+                error_message += msg
+                suggestion = "Review the syntax at this line."
+            if line <= len(self.input_lines):
+                error_message += f"\nLine {line}: {self.input_lines[line-1].strip()}"
+                error_message += f"\n{' ' * (column + len(str(line)) + 2)}^"
+            if suggestion:
+                error_message += f"\nSuggestion: {suggestion}"
+            self.errors.append(error_message)
+            print(error_message)
+
+    filename = '001.txt'
+    inputFile = os.path.join(DIR, './tests', filename)    
+
+    with open(inputFile, 'r', encoding='utf-8') as f:
+        input_content = f.read()
+
+    print('List of token: ')
+    lexer = codeDebugLexer(FileStream(inputFile))        
+    tokens = []
+    token = lexer.nextToken()
+    while token.type != Token.EOF:
+        tokens.append(token.text)
+        token = lexer.nextToken()
+    tokens.append('<EOF>')
+    print(','.join(tokens))    
+
     
-    print(json.dumps(result))
+    lexer = codeDebugLexer(FileStream(inputFile))
+    token_stream = CommonTokenStream(lexer)
+    parser = codeDebugParser(token_stream)   
+    parser.removeErrorListeners()
+    error_listener = CustomErrorListener(input_content)
+    parser.addErrorListener(error_listener)    
+    
+    # print parse tree
+    try:
+        tree = parser.program()
+        print(tree.toStringTree(recog=parser))  
+    except SystemExit:
+        pass
+    
+    # check if errors are existed or not  
+    if error_listener.errors:
+        print("Errors found:")
+        for error in error_listener.errors:
+            print(error)
+    else:
+        print("Input accepted")
+
+
     printBreak()
     print('Run tests completely')
 

@@ -1,5 +1,6 @@
 const express = require("express");
 const { spawn } = require("child_process");
+const path = require("path"); // Thêm module path để xử lý đường dẫn
 const cors = require("cors");
 const app = express();
 
@@ -9,8 +10,18 @@ app.use(express.json());
 app.post("/check-grammar", (req, res) => {
   const input = req.body.input;
 
-  // Gọi script Python với input
-  const pythonProcess = spawn("py", ["grammar_checker.py", input]);
+  const pythonScriptPath = path.join(
+    __dirname,
+    "..",
+    "..",
+    "Grammar-rules-checking",
+    "grammarRules",
+    "run.py"
+  );
+
+  const pythonProcess = spawn("py", [pythonScriptPath, input]);
+  // Gọi script Python với đường dẫn chính xác
+  // const pythonProcess = spawn("py", [pythonScriptPath, input]);
 
   let result = "";
   let error = "";
@@ -34,7 +45,9 @@ app.post("/check-grammar", (req, res) => {
           .json({ success: false, error: "Invalid response from Python" });
       }
     } else {
-      res.status(500).json({ success: false, error });
+      res
+        .status(500)
+        .json({ success: false, error: error || "Python execution failed" });
     }
   });
 });
