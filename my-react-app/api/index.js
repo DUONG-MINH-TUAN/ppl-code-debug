@@ -31,10 +31,20 @@ app.post("/check-grammar", (req, res) => {
     return res.status(400).json({ success: false, error: "Input is required" });
   }
 
+  // Chuẩn hóa input: thay thế ký tự xuống dòng bằng khoảng trắng, giữ khoảng trắng giữa các từ
+  const normalizedInput = input
+    .replace(/(\r\n|\n|\r)/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
   // Chạy script Python
-  const pythonProcess = spawn("py", [`"${pythonScriptPath}"`, "test", input], {
+  const pythonProcess = spawn("py", [`"${pythonScriptPath}"`, "test"], {
     shell: true,
   });
+
+  // Gửi input qua stdin
+  pythonProcess.stdin.write(normalizedInput);
+  pythonProcess.stdin.end();
 
   let result = "";
   let error = "";
@@ -51,32 +61,44 @@ app.post("/check-grammar", (req, res) => {
 
   // Xử lý khi quá trình Python kết thúc
   pythonProcess.on("close", (code) => {
+    console.log("Python stdout:", result); // Debug output
+    console.log("Python stderr:", error); // Debug error
+
     if (code === 0) {
       try {
-        // Tách kết quả JSON từ output
-        const jsonStart = result.indexOf("{");
-        const jsonEnd = result.lastIndexOf("}") + 1;
-        const jsonString = result.slice(jsonStart, jsonEnd);
-        const parsedResult = JSON.parse(jsonString);
+        const cleanedResult = result.trim();
+        if (!cleanedResult) {
+          throw new Error("Empty response from Python");
+        }
+        const parsedResult = JSON.parse(cleanedResult);
         res.json({ success: true, result: parsedResult });
       } catch (e) {
-        res
-          .status(500)
-          .json({ success: false, error: "Invalid response from Python" });
+        res.status(500).json({
+          success: false,
+          error: "Invalid response from Python",
+          details: e.message,
+          stdout: result,
+          stderr: error,
+        });
       }
     } else {
-      res
-        .status(500)
-        .json({ success: false, error: error || "Python execution failed" });
+      res.status(500).json({
+        success: false,
+        error: "Python execution failed",
+        stdout: result,
+        stderr: error,
+      });
     }
   });
 
   // Xử lý lỗi khi spawn thất bại
   pythonProcess.on("error", (err) => {
-    res.status(500).json({
-      success: false,
-      error: `Failed to start Python process: ${err.message}`,
-    });
+    res
+      .status(500)
+      .json({
+        success: false,
+        error: `Failed to start Python process: ${err.message}`,
+      });
   });
 });
 
