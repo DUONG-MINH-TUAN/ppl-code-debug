@@ -2,8 +2,8 @@
 
 src/app/test/
 
-CompiledFiles/*
-!CompiledFiles/.gitkeep
+Grammar-rules-checking/grammarRules/CompiledFiles/*
+!Grammar-rules-checking/grammarRules/CompiledFiles/.gitkeep
 # dependencies
 /node_modules
 /.pnp
