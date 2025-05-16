@@ -2,6 +2,8 @@
 
 src/app/test/
 
+CompiledFiles/*
+!CompiledFiles/.gitkeep
 # dependencies
 /node_modules
 /.pnp
