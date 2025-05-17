@@ -33,3 +33,14 @@ __pycache__/
 *.interp
 *.tokens
 *.jar
+
+# Ignore all compiled Python files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Optional: ignore ANTLR compiled files (nếu bạn dùng ANTLR)
+*.interp
+*.tokens
+*.jar

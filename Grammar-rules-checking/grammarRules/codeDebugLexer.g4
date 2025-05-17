@@ -1,5 +1,6 @@
 lexer grammar codeDebugLexer;
 
+NEW: 'new' -> pushMode(DATE_MODE);
 
 
 RETURN: 'return';
@@ -42,20 +43,23 @@ SLASH: '/';
 SEMICOLON: ';';
 IMPLIE: '=>';
 DOT: '.';
-
+fragment CARRIAGE_RETURN:'\r';
+LINE_FEED:'\n'+;
 
 IDENTIFIER: [a-zA-Z][a-zA-Z0-9]*;
 
 
-NUMBER: [0-9];
+NUMBER: [0-9][0-9]*;
+
+NEWLINE: CARRIAGE_RETURN* LINE_FEED;
 
 WS: [ \t\r\n]+ -> skip;
 
-NEW: 'new' -> pushMode(DATE_MODE);
+
 
 mode DATE_MODE;
-SPACE: [ \t\r\n]+;  // no skip space
+SPACE: [ \t\r\n]+;  
 DATE_IDENTIFIER: 'Date';
 DATE_MODE_LEFT_PARENTHESIS: '(';
 DATE_MODE_RIGHT_PARENTHESIS: ')';
-DATE_FUNC: DATE_IDENTIFIER DATE_MODE_LEFT_PARENTHESIS DATE_MODE_RIGHT_PARENTHESIS -> popMode;
+DATE_FUNC: SPACE DATE_IDENTIFIER SPACE? DATE_MODE_LEFT_PARENTHESIS SPACE? DATE_MODE_RIGHT_PARENTHESIS -> popMode;
