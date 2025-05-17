@@ -1,1 +1,13 @@
-hello world
+import {useEffect} from react;
+function Hi(hello,hi,hello,hello) {
+    const o = new Date();
+    return(
+        <> 
+            <div>
+                <div>
+                    <div></div>
+                </div>
+            </div>
+        </>
+    )
+} 

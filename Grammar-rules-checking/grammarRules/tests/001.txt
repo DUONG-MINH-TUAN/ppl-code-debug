@@ -1,15 +1,20 @@
-import {useEffect} from react;
 function Hi(hello,hi,hello,hello) {
     const [temp, setTemp] = useState(['1','2','3']);
+    const [age, setAge] = useState(30);
     const hello = () => {useEffect(()=>{
         console.log("hello");
-    },[])console.log("hello");};
+    },[]);
+    console.log("hello");};
     useEffect(()=>{
         console.log("hello");
-    },[])
+    },[]);
     useCallback(()=>{
         console.log("hello");
-    },[])
+    },[]);
+    console.log(date);
+    const array = [1,2,3,4,5];
+    const n = 123n;
+    const o = new Date();
     return(
         <> 
             <div>
@@ -19,4 +24,4 @@ function Hi(hello,hi,hello,hello) {
             </div>
         </>
     )
-}
+} 

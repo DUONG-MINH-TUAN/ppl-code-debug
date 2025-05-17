@@ -105,7 +105,7 @@
 
 .send-btn:hover svg {
     stroke: #fff;
-    transform: scale(1.2) rotate(45deg); /* Phóng to và xoay nhẹ khi hover */
+    transform: scale(1.2) rotate(45deg);
 }
 
 .send-btn:disabled {
@@ -116,10 +116,10 @@
 }
 
 .send-btn .send-icon {
-    stroke: #666; /* Đồng bộ với .action-btn */
+    stroke: #666;
     fill: none;
     transition: all 0.3s ease;
-    width: 22px; /* Tăng kích thước icon */
+    width: 22px;
     height: 24px;
 }
 
@@ -129,12 +129,11 @@
 }
 
 .send-btn:active svg {
-    transform: scale(1.1); /* Hiệu ứng thu nhỏ nhẹ khi nhấn */
+    transform: scale(1.1);
 }
 
-/* Add a subtle effect when there's content to send */
 .send-btn:not(:disabled) .send-icon {
-    stroke: #1a73e8; /* Giữ màu nổi bật khi có nội dung */
+    stroke: #1a73e8;
 }
 
 .send-btn:not(:disabled):hover {
@@ -142,10 +141,9 @@
 }
 
 .send-btn:not(:disabled):hover .send-icon {
-    stroke: #fff; /* Màu trắng để nổi bật trên nền xanh */
+    stroke: #fff;
 }
 
-/* Dark mode adjustments */
 body.dark-mode .chat-input-container {
     background-color: #2a2a2a;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
@@ -172,11 +170,11 @@ body.dark-mode .action-btn:hover {
 }
 
 body.dark-mode .send-btn .send-icon {
-    stroke: #bbb; /* Đồng bộ với .action-btn trong dark mode */
+    stroke: #bbb;
 }
 
 body.dark-mode .send-btn:not(:disabled) .send-icon {
-    stroke: #4285f4; /* Giữ màu nổi bật khi có nội dung */
+    stroke: #4285f4;
 }
 
 body.dark-mode .send-btn:hover {
@@ -186,7 +184,7 @@ body.dark-mode .send-btn:hover {
 
 body.dark-mode .send-btn:hover svg {
     stroke: #fff;
-    transform: scale(1.2) rotate(45deg); /* Hiệu ứng tương tự trong dark mode */
+    transform: scale(1.2) rotate(45deg);
 }
 
 body.dark-mode .send-btn:disabled {
@@ -195,9 +193,9 @@ body.dark-mode .send-btn:disabled {
 }
 
 body.dark-mode .send-btn:not(:disabled):hover .send-icon {
-    stroke: #fff; /* Màu trắng để nổi bật */
+    stroke: #fff;
 }
 
 body.dark-mode .send-btn:active svg {
-    transform: scale(1.1); /* Hiệu ứng khi nhấn trong dark mode */
+    transform: scale(1.1);
 }
