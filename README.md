@@ -130,6 +130,10 @@ fix: Resolve missing dependency detection in useEffect
 
 HookScope is an open-source project. Contributions are welcome! Please fork the repository, create a feature branch, and submit a pull request. Follow the Git Practices and Commit Naming Conventions outlined above.
 
+## Additional Libraries
+
+python-dotenv: pip install python-dotenv
+
 ## Note
 
 This README will be updated as the project progresses. For questions, contact the project lead via the group chat or raise issues on the GitHub repository.
