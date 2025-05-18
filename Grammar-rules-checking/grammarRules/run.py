@@ -3,13 +3,18 @@ import os
 import subprocess
 import json
 from antlr4 import *
+from dotenv import load_dotenv
 from CompiledFiles.codeDebugLexer import codeDebugLexer
 from CompiledFiles.codeDebugParser import codeDebugParser
 from antlr4.error.ErrorListener import ErrorListener
 
+load_dotenv()
+
+ANTLR_DIR = os.getenv('ANTLR_DIR')
+
 # Define your variables
 DIR = os.path.dirname(__file__)
-ANTLR_JAR = 'D:/antlr4/antlr4-4.9.2-complete.jar'
+ANTLR_JAR = ANTLR_DIR
 CPL_Dest = 'CompiledFiles'
 LEXER_SRC = 'codeDebugLexer.g4'
 PARSER_SRC = 'codeDebugParser.g4'
