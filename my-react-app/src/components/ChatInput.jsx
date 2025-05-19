@@ -25,7 +25,7 @@ function ChatInput({ onSendMessage }) {
     adjustTextareaHeight();
   }, [inputValue]);
 
-  const checkGrammar = async (code) => {
+  const checkGrammar = async (code, callback) => {
     try {
       const response = await axios.post("http://localhost:3000/check-grammar", {
         input: code,
@@ -34,19 +34,23 @@ function ChatInput({ onSendMessage }) {
 
       if (!response.data.success) {
         console.error("Grammar check failed:", response.data.error);
-        toast.error(response.data.error, {
-          position: "top-center", // Đổi vị trí sang giữa trên
+        const errorMessage = response.data.error;
+        toast.error(errorMessage, {
+          position: "top-center",
           autoClose: 5000,
           hideProgressBar: false,
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
         });
+        // Pass error message to ChatContainer
+        callback(errorMessage, 'error');
       } else if (!response.data.result.success) {
         console.error("Invalid syntax:", response.data.result.errors);
-        response.data.result.errors.forEach((error) => {
+        const errorMessages = response.data.result.errors;
+        errorMessages.forEach((error) => {
           toast.error(error, {
-            position: "top-center", // Đổi vị trí sang giữa trên
+            position: "top-center",
             autoClose: 5000,
             hideProgressBar: false,
             closeOnClick: true,
@@ -54,27 +58,36 @@ function ChatInput({ onSendMessage }) {
             draggable: true,
           });
         });
+        // Pass combined error messages to ChatContainer
+        const combinedErrors = errorMessages.join(', ');
+        callback(combinedErrors, 'error');
       } else {
-        toast.success(response.data.result.message, {
-          position: "top-center", // Đổi vị trí sang giữa trên
+        const successMessage = response.data.result.message;
+        toast.success(successMessage, {
+          position: "top-center",
           autoClose: 5000,
           hideProgressBar: false,
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
         });
+        // Pass success message to ChatContainer
+        callback(successMessage, 'success');
       }
     } catch (error) {
       setResult({ success: false, error: "Server error" });
       console.error("Error calling grammar check API:", error.message);
-      toast.error("Server error: " + error.message, {
-        position: "top-center", // Đổi vị trí sang giữa trên
+      const errorMessage = "Server error: " + error.message;
+      toast.error(errorMessage, {
+        position: "top-center",
         autoClose: 5000,
         hideProgressBar: false,
         closeOnClick: true,
         pauseOnHover: true,
         draggable: true,
       });
+      // Pass server error to ChatContainer
+      callback(errorMessage, 'error');
     }
   };
 
@@ -96,12 +109,20 @@ function ChatInput({ onSendMessage }) {
   const handleSubmit = (event) => {
     event.preventDefault();
     if (inputValue.trim()) {
-      // Pass the message up to parent component
-      onSendMessage(inputValue.trim());
-      
-      // Reset height after clearing
       console.log("Sending useEffect code:", inputValue);
-      checkGrammar(inputValue);
+      
+      // Pass the message and grammar check result to parent component
+      onSendMessage(inputValue.trim(), (grammarResponse, type) => {
+        // This callback will be called when grammar check completes
+        // grammarResponse contains the same message as toast
+        // type can be 'success' or 'error'
+      });
+      
+      // Check grammar with callback
+      checkGrammar(inputValue, (grammarResponse, type) => {
+        // Grammar check completed, response already sent via onSendMessage
+      });
+      
       setInputValue("");
       setTimeout(adjustTextareaHeight, 0);
     }
@@ -117,7 +138,7 @@ function ChatInput({ onSendMessage }) {
   return (
     <div style={{ width: "100%" }}>
       <ToastContainer
-        position="top-center" // Đặt vị trí ToastContainer ở giữa trên
+        position="top-center"
         autoClose={5000}
         hideProgressBar={false}
         closeOnClick

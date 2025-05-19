@@ -101,3 +101,7 @@ body.dark-mode .assistant-message .message-text {
         transform: translateY(0);
     }
 }
+.chat-message {
+  white-space: pre-wrap; /* Hỗ trợ xuống dòng */
+  word-wrap: break-word; /* Đảm bảo văn bản không tràn */
+}

@@ -24,7 +24,7 @@ function Navbar({ onDarkModeToggle, isDarkMode }) {
       <div className="navbar-container">
         <div className="logo">
           <img src={myLogo} alt="Custom Logo" className="logo-icon" />
-          <span className="logo-text">CodeDebug</span>
+          <span className="logo-text">HookScope</span>
         </div>
         
         <div className="nav-actions">
