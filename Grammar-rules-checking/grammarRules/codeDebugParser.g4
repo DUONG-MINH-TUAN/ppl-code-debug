@@ -5,112 +5,81 @@ options {
 }
 
 // Parser rules 
-program: main_structure; 
+program: main_structure EOF; 
 
+main_structure: (import_statement)? function_declaration*;
 
-main_structure: (import_statement)? function_declaration IDENTIFIER parameter_list body_function;
+// Function declaration with unique IDENTIFIER
+function_declaration: FUNCTION IDENTIFIER parameter_list body_function
+                    | EXPORT FUNCTION IDENTIFIER parameter_list body_function;
 
-//parameter in functional component
-parameter_list:     LEFT_PARENTHESIS parameter* RIGHT_PARENTHESIS 
-                |   LEFT_PARENTHESIS LEFT_BRACE parameter* RIGHT_BRACE RIGHT_PARENTHESIS;
+// Parameter in functional component
+parameter_list: LEFT_PARENTHESIS parameter* RIGHT_PARENTHESIS 
+              | LEFT_PARENTHESIS LEFT_BRACE parameter* RIGHT_BRACE RIGHT_PARENTHESIS;
 parameter: IDENTIFIER (COMMA IDENTIFIER)*;    
-//function declaration
-function_declaration:FUNCTION | EXPORT FUNCTION;
 
-//body of the functional component
+// Body of the functional component
 body_function: LEFT_BRACE content* RIGHT_BRACE; 
 
-// content of the body of the function
-content:    stateSetter stat_breakDown
-        |   useEffectCall stat_breakDown
-        |   bigIntDeclaration stat_breakDown
-        |   numberDeclaration stat_breakDown
-        |   stringDeclaration stat_breakDown
-        |   arrowFunction stat_breakDown
-        |   arrayDeclaration stat_breakDown
-        |   consoleCommand stat_breakDown
-        |   useCallbackCall stat_breakDown
-        |   dateDeclaration stat_breakDown   
-        |   return_statement stat_breakDown;
+// Content of the body of the function
+content: stateSetter stat_breakDown
+       | useEffectCall stat_breakDown
+       | bigIntDeclaration stat_breakDown
+       | numberDeclaration stat_breakDown
+       | stringDeclaration stat_breakDown
+       | arrowFunction stat_breakDown
+       | arrayDeclaration stat_breakDown
+       | consoleCommand stat_breakDown
+       | useCallbackCall stat_breakDown
+       | dateDeclaration stat_breakDown   
+       | return_statement stat_breakDown
+       | variableDeclaration stat_breakDown;
 
-
-// types of variable
+// Types of variable
 variableTypes: CONST | VAR | LET;
 
-//values for types 
+// General variable declaration
+variableDeclaration: variableTypes IDENTIFIER EQUAL (stringValue | NUMBER | boolean | BIGINT_LITERAL | NULL | SYMBOL_FUNC | array | NEW DATE_FUNC);
+
+// Values for types 
+array: LEFT_SQUARE_BRACKET arrayValue* RIGHT_SQUARE_BRACKET;
 numberArray: NUMBER (COMMA NUMBER)*;
 stringArray: stringValue (COMMA stringValue)*;
-arrayValue: numberArray | stringArray;
-stringValue: 
-                DOUBLE_QUOTE DOUBLE_QUOTE 
-        |       SINGLE_QUOTE SINGLE_QUOTE
-        |       DOUBLE_QUOTE IDENTIFIER DOUBLE_QUOTE 
-        |       SINGLE_QUOTE IDENTIFIER SINGLE_QUOTE
-        |       DOUBLE_QUOTE NUMBER* DOUBLE_QUOTE
-        |       SINGLE_QUOTE NUMBER* SINGLE_QUOTE;
+arrayArray: array (COMMA array)*;
+arrayValue: numberArray | stringArray | arrayArray;
+stringValue: STRING_VALUE;
 
-
-//element
+// Element with matching open and close tags
 element: openTag elementContent* closeTag
     | fragmentOpen elementContent* fragmentClose
     | emptyFragment;
 emptyFragment: LEFT_ANGLE_BRACKET RIGHT_ANGLE_BRACKET LEFT_ANGLE_BRACKET SLASH RIGHT_ANGLE_BRACKET; // <></>
 fragmentOpen: LEFT_ANGLE_BRACKET RIGHT_ANGLE_BRACKET; // <>
 fragmentClose: LEFT_ANGLE_BRACKET SLASH RIGHT_ANGLE_BRACKET; // </>
-//open tag
 openTag: LEFT_ANGLE_BRACKET IDENTIFIER RIGHT_ANGLE_BRACKET;
+closeTag: LEFT_ANGLE_BRACKET SLASH IDENTIFIER RIGHT_ANGLE_BRACKET; // Ensure IDENTIFIER matches openTag
 
-//close tag
-closeTag: LEFT_ANGLE_BRACKET SLASH IDENTIFIER RIGHT_ANGLE_BRACKET;
-
-//content of the element
+// Content of the element
 elementContent: element | valueIndicator;
 valueIndicator: LEFT_BRACE IDENTIFIER RIGHT_BRACE;  
 
-
-//variable declaration
-
-// primitive data
-
-// string
+// Primitive data
 stringDeclaration: variableTypes IDENTIFIER EQUAL stringValue;
-
-// number
 numberDeclaration: variableTypes IDENTIFIER EQUAL NUMBER+;
-
-// boolean
 booleanDeclaration: variableTypes IDENTIFIER EQUAL boolean;
 boolean: TRUE | FALSE;
-
-// bigInt 
 bigIntDeclaration: variableTypes IDENTIFIER EQUAL BIGINT_LITERAL;  
-
-//Do not use the BIGINT TOKEN with the value of 'n' in isolation as it may cause ambiguity.
-
-// undefined value
 undefinedDeclaration: variableTypes IDENTIFIER;
-
-// null value
 nullDeclaration: variableTypes IDENTIFIER EQUAL NULL;
-
-// symbol value
 symbolDeclaration: variableTypes IDENTIFIER EQUAL SYMBOL_FUNC;
-
-// array declaration
 arrayDeclaration: variableTypes IDENTIFIER EQUAL array;
-
-// date declaration 
 dateDeclaration: variableTypes IDENTIFIER EQUAL NEW DATE_FUNC;
 
-
-//hook declaration
-
-// useState 
+// Hook declaration
 stateSetter: variableTypes statePair EQUAL USE_STATE initialValue;
 statePair: LEFT_SQUARE_BRACKET IDENTIFIER COMMA IDENTIFIER RIGHT_SQUARE_BRACKET;
 initialValue: LEFT_PARENTHESIS valueForInitialization* RIGHT_PARENTHESIS;
 valueForInitialization: IDENTIFIER | NUMBER+ | array | stringValue;
-array: LEFT_SQUARE_BRACKET arrayValue* RIGHT_SQUARE_BRACKET;
 
 // useEffect
 useEffectCall: USE_EFFECT LEFT_PARENTHESIS callbackFunction COMMA dependencyArray RIGHT_PARENTHESIS;
@@ -123,24 +92,16 @@ useCallbackCall: USE_CALLBACK LEFT_PARENTHESIS callbackFunction COMMA dependency
 // arrow function
 arrowFunction: variableTypes IDENTIFIER EQUAL parameter_list IMPLIE LEFT_BRACE content* RIGHT_BRACE;   
 
-//normal function
-
-
-//statement
+// Statement
 hook: USE_EFFECT | USE_CALLBACK | USE_MEMO | USE_STATE;
-import_statement: IMPORT LEFT_BRACE hook* RIGHT_BRACE FROM REACT stat_breakDown;
+import_statement: IMPORT LEFT_BRACE hook (COMMA hook)* RIGHT_BRACE FROM REACT stat_breakDown;
 return_statement: RETURN LEFT_PARENTHESIS element RIGHT_PARENTHESIS;
 
-//console.log command
-consoleCommand:     CONSOLE DOT LOG LEFT_PARENTHESIS (stringValue)? RIGHT_PARENTHESIS
-                // console log có object ở trong (eg: console.log(date))
-                |   CONSOLE DOT LOG LEFT_PARENTHESIS IDENTIFIER RIGHT_PARENTHESIS;
-
-
+// Console.log command
+consoleCommand: CONSOLE DOT LOG LEFT_PARENTHESIS (stringValue | IDENTIFIER)? RIGHT_PARENTHESIS;
 
 // Statement Breakdown
 stat_breakDown: NEWLINE (SEMICOLON)? | SEMICOLON;
-
 
 // Error Handling
 errorRule: .+? (SEMICOLON | RIGHT_BRACE | EOF);

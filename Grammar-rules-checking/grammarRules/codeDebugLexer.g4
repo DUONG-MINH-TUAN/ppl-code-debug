@@ -2,7 +2,6 @@ lexer grammar codeDebugLexer;
 
 NEW: 'new' -> pushMode(DATE_MODE);
 
-
 RETURN: 'return';
 CONST: 'const';
 VAR: 'var';
@@ -36,7 +35,7 @@ RIGHT_SQUARE_BRACKET: ']';
 COMMA: ',';
 EQUAL: '=';
 SINGLE_QUOTE: '\'';
-DOUBLE_QUOTE: '\u0022';
+DOUBLE_QUOTE: '"';
 LEFT_ANGLE_BRACKET: '<';
 RIGHT_ANGLE_BRACKET: '>';
 SLASH: '/';
@@ -48,14 +47,16 @@ LINE_FEED:'\n'+;
 
 IDENTIFIER: [a-zA-Z][a-zA-Z0-9]*;
 
-
 NUMBER: [0-9][0-9]*;
 
 NEWLINE: CARRIAGE_RETURN* LINE_FEED;
 
 WS: [ \t\r\n]+ -> skip;
 
-
+fragment STRING_CONTENT: (~["'\\] | '\\' ["'\\])*;
+SINGLE_QUOTE_STRING: '\'' STRING_CONTENT '\'' -> type(STRING_VALUE);
+DOUBLE_QUOTE_STRING: '"' STRING_CONTENT '"' -> type(STRING_VALUE);
+STRING_VALUE: SINGLE_QUOTE_STRING | DOUBLE_QUOTE_STRING;
 
 mode DATE_MODE;
 SPACE: [ \t\r\n]+;  
