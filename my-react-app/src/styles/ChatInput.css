@@ -1,141 +1,201 @@
 .chat-input-container {
-  width: 100%;
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 12px;
-  display: flex;
-  border-radius: 20px;
-  background-color: white;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  align-items: flex-end; /* Align items to the bottom for better textarea expansion */
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 14px;
+    display: flex;
+    border-radius: 0 0 20px 20px;
+    background-color: white;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05);
+    align-items: flex-end;
+    border: 1px solid rgba(200, 200, 200, 0.5);
+    transition: all 0.3s ease;
+}
+
+.chat-input-container:focus-within {
+    box-shadow: 0 6px 24px rgba(26, 115, 232, 0.15), 0 2px 8px rgba(26, 115, 232, 0.1);
+    border: 1px solid rgba(26, 115, 232, 0.5);
+    transform: translateY(-2px);
 }
 
 .chat-input {
-  flex: 1;
-  border: none;
-  padding: 14px 18px;
-  font-size: 18px;
-  outline: none;
-  background: transparent;
-  color: #333; /* Default text color in light mode */
-  resize: none; /* Disable manual resizing */
-  max-height: 200px; /* Maximum height before scrolling */
-  min-height: 24px; /* Minimum height */
-  overflow-y: auto; /* Add scrollbar when content exceeds max height */
-  line-height: 1.5; /* Consistent line height */
-  font-family: inherit; /* Inherit font family for consistency */
-  width: 100%; /* Full width */
+    flex: 1;
+    border: none;
+    padding: 14px 18px;
+    font-size: 18px;
+    outline: none;
+    background: transparent;
+    color: #333;
+    resize: none;
+    max-height: 200px;
+    min-height: 24px;
+    overflow-y: auto;
+    line-height: 1.5;
+    font-family: inherit;
+    width: 100%;
 }
 
 .input-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-right: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-right: 12px;
 }
 
 .action-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #666;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
 }
 
 .action-btn:hover {
-  background-color: #f0f0f0;
+    background-color: #f0f0f0;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.action-btn:active {
+    transform: translateY(0);
 }
 
 .send-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
+    background: none;
+    border: none;
+    cursor: pointer;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.send-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle, rgba(26, 115, 232, 0.2) 0%, rgba(26, 115, 232, 0) 70%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.send-btn:hover::before {
+    opacity: 1;
 }
 
 .send-btn:hover {
-  background-color: #1a73e8;
+    background-color: #1a73e8;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
 }
 
 .send-btn:hover svg {
-  stroke: white;
+    stroke: #fff;
+    transform: scale(1.2) rotate(45deg);
 }
 
 .send-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .send-btn .send-icon {
-  stroke: #666;
-  fill: none;
-  transition: all 0.2s ease;
+    stroke: #666;
+    fill: none;
+    transition: all 0.3s ease;
+    width: 22px;
+    height: 24px;
 }
 
 .send-btn:active {
-  transform: scale(0.95);
+    transform: scale(0.95);
+    box-shadow: 0 2px 8px rgba(26, 115, 232, 0.2);
 }
 
-/* Add a subtle effect when there's content to send */
+.send-btn:active svg {
+    transform: scale(1.1);
+}
+
 .send-btn:not(:disabled) .send-icon {
-  stroke: #1a73e8;
+    stroke: #1a73e8;
 }
 
 .send-btn:not(:disabled):hover {
-  background-color: #1a73e8;
+    background-color: #1a73e8;
 }
 
 .send-btn:not(:disabled):hover .send-icon {
-  stroke: white;
+    stroke: #fff;
 }
 
-/* Dark mode adjustments */
 body.dark-mode .chat-input-container {
-  background-color: #333; /* Dark gray background in dark mode */
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); /* Slightly darker shadow for depth */
+    background-color: #2a2a2a;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(80, 80, 80, 0.5);
+    border-radius: 0 0 20px 20px;
+}
+
+body.dark-mode .chat-input-container:focus-within {
+    box-shadow: 0 6px 24px rgba(66, 133, 244, 0.2), 0 2px 8px rgba(66, 133, 244, 0.15);
+    border: 1px solid rgba(66, 133, 244, 0.6);
 }
 
 body.dark-mode .chat-input {
-  color: #ddd; /* Light gray text for better contrast */
+    color: #eee;
 }
 
 body.dark-mode .action-btn {
-  color: #ccc; /* Lighter color for icons in dark mode */
+    color: #bbb;
 }
 
 body.dark-mode .action-btn:hover {
-  background-color: #444; /* Darker hover background for contrast */
+    background-color: #3a3a3a;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 body.dark-mode .send-btn .send-icon {
-  stroke: #ccc;
+    stroke: #bbb;
 }
 
 body.dark-mode .send-btn:not(:disabled) .send-icon {
-  stroke: #1a73e8;
+    stroke: #4285f4;
 }
 
 body.dark-mode .send-btn:hover {
-  background-color: #1a73e8;
+    background-color: #4285f4;
+    box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+}
+
+body.dark-mode .send-btn:hover svg {
+    stroke: #fff;
+    transform: scale(1.2) rotate(45deg);
 }
 
 body.dark-mode .send-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 body.dark-mode .send-btn:not(:disabled):hover .send-icon {
-  stroke: white;
+    stroke: #fff;
+}
+
+body.dark-mode .send-btn:active svg {
+    transform: scale(1.1);
 }
