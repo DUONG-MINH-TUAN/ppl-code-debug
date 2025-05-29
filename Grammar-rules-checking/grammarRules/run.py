@@ -10,13 +10,19 @@ from antlr4 import *
 from CompiledFiles.codeDebugLexer import codeDebugLexer
 from CompiledFiles.codeDebugParser import codeDebugParser
 from antlr4.error.ErrorListener import ErrorListener
-from interpreter import (
-    Context, Expression, ProgramExpression, FunctionDeclarationExpression,
-    ElementExpression, VariableDeclarationExpression, ValueIndicatorExpression,
-    ReturnStatementExpression, StringExpression, NumberExpression,
-    StateSetterExpression, ArrayExpression, BigIntExpression, DateExpression,
-    ImportExpression, UseEffectExpression, UseCallbackExpression,
-    ConsoleCommandExpression, ArrowFunctionExpression
+
+from interpreter.context import Context
+from interpreter.expression import Expression, ProgramExpression
+from interpreter.non_terminal_expression import (
+    FunctionDeclarationExpression,
+    ElementExpression, VariableDeclarationExpression, 
+    ReturnStatementExpression, StateSetterExpression, ArrayExpression,
+    UseEffectExpression, UseCallbackExpression, ConsoleCommandExpression,
+    ArrowFunctionExpression, ForExpression, IfExpression
+)
+from interpreter.terminal_expression import (
+    StringExpression, NumberExpression, ImportExpression, ValueIndicatorExpression, 
+    BigIntExpression, DateExpression, BooleanExpression, BinaryExpression
 )
 
 load_dotenv()
@@ -50,19 +56,14 @@ def generateAntlr2Python():
 
 def clean_input(input_string: str) -> str:
     """Clean the input string to remove unwanted characters and normalize format."""
-    # Remove surrounding quotes if present
     input_string = input_string.strip()
     if input_string.startswith('"') and input_string.endswith('"'):
         input_string = input_string[1:-1]
     elif input_string.startswith("'") and input_string.endswith("'"):
         input_string = input_string[1:-1]
     
-    # Normalize escaped quotes (e.g., \" to ")
     input_string = re.sub(r'\\(["\'])', r'\1', input_string)
-    
-    # Normalize whitespace and newlines
     input_string = re.sub(r'\s+', ' ', input_string).strip()
-    # Reformat to add proper newlines for readability
     lines = input_string.replace(';', ';\n').replace('{', '{\n').replace('}', '\n}')
     return '\n'.join(line.strip() for line in lines.split('\n') if line.strip())
 
@@ -110,6 +111,8 @@ class CustomErrorListener(ErrorListener):
             error_message += f"\nSuggestion: {suggestion}"
         self.errors.append(error_message)
 
+# (Giữ nguyên các phần khác của run.py, chỉ cập nhật phần visit)
+
 class ASTBuilder:
     def build(self, ctx, input_lines: List[str]) -> Expression:
         print(f"Building AST for {type(ctx).__name__}", file=sys.stderr)
@@ -121,8 +124,8 @@ class ASTBuilder:
         sys.stderr.flush()
         if isinstance(ctx, codeDebugParser.ProgramContext):
             import_stmt = self.visit(ctx.main_structure().import_statement(), input_lines) if ctx.main_structure().import_statement() else None
-            functions = [self.visit(func, input_lines) for func in ctx.main_structure().function_declaration()]
-            return ProgramExpression(import_stmt, functions)
+            statements_and_functions = [self.visit(node, input_lines) for node in ctx.main_structure().getChildren() if not isinstance(node, codeDebugParser.Import_statementContext)]
+            return ProgramExpression(import_stmt, statements_and_functions)
         elif isinstance(ctx, codeDebugParser.Import_statementContext):
             hooks = [ctx.hook(i).getText() for i in range(len(ctx.hook()))]
             line = ctx.start.line
@@ -133,30 +136,109 @@ class ASTBuilder:
             params = [param.getText() for param in ctx.parameter_list().parameter()] if ctx.parameter_list().parameter() else []
             body = [self.visit(content, input_lines) for content in ctx.body_function().content()] if ctx.body_function().content() else []
             return FunctionDeclarationExpression(name, line, params, body)
+        elif isinstance(ctx, codeDebugParser.ContentContext):
+            if ctx.stateSetter():
+                return self.visit(ctx.stateSetter(), input_lines)
+            elif ctx.useEffectCall():
+                return self.visit(ctx.useEffectCall(), input_lines)
+            elif ctx.bigIntDeclaration():
+                return self.visit(ctx.bigIntDeclaration(), input_lines)
+            elif ctx.numberDeclaration():
+                return self.visit(ctx.numberDeclaration(), input_lines)
+            elif ctx.stringDeclaration():
+                return self.visit(ctx.stringDeclaration(), input_lines)
+            elif ctx.arrowFunction():
+                return self.visit(ctx.arrowFunction(), input_lines)
+            elif ctx.arrayDeclaration():
+                return self.visit(ctx.arrayDeclaration(), input_lines)
+            elif ctx.consoleCommand():
+                return self.visit(ctx.consoleCommand(), input_lines)
+            elif ctx.useCallbackCall():
+                return self.visit(ctx.useCallbackCall(), input_lines)
+            elif ctx.dateDeclaration():
+                return self.visit(ctx.dateDeclaration(), input_lines)
+            elif ctx.return_statement():
+                return self.visit(ctx.return_statement(), input_lines)
+            elif ctx.variableDeclaration():
+                return self.visit(ctx.variableDeclaration(), input_lines)
+            elif ctx.forStatement():
+                return self.visit(ctx.forStatement(), input_lines)
+            elif ctx.ifStatement():
+                return self.visit(ctx.ifStatement(), input_lines)
+            else:
+                raise ValueError(f"Unhandled content child: {ctx.getText()}")
         elif isinstance(ctx, codeDebugParser.ElementContext):
-            open_tag = ctx.openTag().IDENTIFIER().getText() if ctx.openTag() else "" if not ctx.emptyFragment() else ""
-            close_tag = ctx.closeTag().IDENTIFIER().getText() if ctx.closeTag() else "" if not ctx.emptyFragment() else ""
+            open_tag = ""
+            close_tag = ""
+            if ctx.openTag():
+                open_tag = ctx.openTag().getText().lstrip('<').rstrip('>')
+            if ctx.closeTag():
+                close_tag = ctx.closeTag().IDENTIFIER().getText()
             line = ctx.start.line
             content = [self.visit(content, input_lines) for content in ctx.elementContent()] if ctx.elementContent() else []
             return ElementExpression(open_tag, close_tag, line, content)
+        elif isinstance(ctx, codeDebugParser.SelfClosingTagContext):
+            tag = ctx.JSX_OPEN_TAG().getText().lstrip('<').rstrip('>')
+            line = ctx.start.line
+            return ElementExpression(tag, tag, line, [])
         elif isinstance(ctx, codeDebugParser.FragmentOpenContext):
             return ElementExpression("", "", ctx.start.line, [])
         elif isinstance(ctx, codeDebugParser.FragmentCloseContext):
             return ElementExpression("", "", ctx.start.line, [])
         elif isinstance(ctx, codeDebugParser.EmptyFragmentContext):
             return ElementExpression("", "", ctx.start.line, [])
+        elif isinstance(ctx, codeDebugParser.ElementContentContext):
+            if ctx.element():
+                return self.visit(ctx.element(), input_lines)
+            elif ctx.valueIndicator():
+                return self.visit(ctx.valueIndicator(), input_lines)
+            elif ctx.TAG_TEXT():
+                return StringExpression(ctx.TAG_TEXT().getText(), ctx.start.line)
+            else:
+                raise ValueError(f"Unhandled elementContent child: {ctx.getText()}")
         elif isinstance(ctx, codeDebugParser.VariableDeclarationContext):
             name = ctx.IDENTIFIER().getText()
             line = ctx.IDENTIFIER().symbol.line
             value = None
             if ctx.stringValue():
                 value = self.visit(ctx.stringValue(), input_lines)
+            elif ctx.NUMBER():
+                value = NumberExpression(ctx.NUMBER().getText(), line)
             elif ctx.array():
                 value = self.visit(ctx.array(), input_lines)
             elif ctx.BIGINT_LITERAL():
                 value = BigIntExpression(ctx.BIGINT_LITERAL().getText(), line)
             elif ctx.NEW():
                 value = DateExpression(line)
+            elif ctx.genericType():
+                value = self.visit(ctx.genericType(), input_lines)
+            return VariableDeclarationExpression(name, line, value)
+        elif isinstance(ctx, codeDebugParser.GenericTypeContext):
+            base_type = ctx.IDENTIFIER(0).getText()
+            type_arg = self.visit(ctx.typeArgument(), input_lines)
+            line = ctx.start.line
+            return StringExpression(f"{base_type}<{type_arg.value}>", line)
+        elif isinstance(ctx, codeDebugParser.TypeArgumentContext):
+            if ctx.IDENTIFIER():
+                return StringExpression(ctx.IDENTIFIER().getText(), ctx.start.line)
+            elif ctx.genericType():
+                return self.visit(ctx.genericType(), input_lines)
+            else:
+                raise ValueError(f"Unhandled typeArgument child: {ctx.getText()}")
+        elif isinstance(ctx, codeDebugParser.BigIntDeclarationContext):
+            name = ctx.IDENTIFIER().getText()
+            line = ctx.IDENTIFIER().symbol.line
+            value = BigIntExpression(ctx.BIGINT_LITERAL().getText(), line)
+            return VariableDeclarationExpression(name, line, value)
+        elif isinstance(ctx, codeDebugParser.NumberDeclarationContext):
+            name = ctx.IDENTIFIER().getText()
+            line = ctx.IDENTIFIER().symbol.line
+            value = NumberExpression(ctx.NUMBER()[0].getText(), line)
+            return VariableDeclarationExpression(name, line, value)
+        elif isinstance(ctx, codeDebugParser.StringDeclarationContext):
+            name = ctx.IDENTIFIER().getText()
+            line = ctx.IDENTIFIER().symbol.line
+            value = self.visit(ctx.stringValue(), input_lines)
             return VariableDeclarationExpression(name, line, value)
         elif isinstance(ctx, codeDebugParser.StateSetterContext):
             state_pair = [ctx.statePair().IDENTIFIER()[0].getText(), ctx.statePair().IDENTIFIER()[1].getText()]
@@ -218,10 +300,45 @@ class ASTBuilder:
             element = self.visit(ctx.element(), input_lines)
             line = ctx.start.line
             return ReturnStatementExpression(element, line)
+        elif isinstance(ctx, codeDebugParser.ForStatementContext):
+            var_name = ctx.IDENTIFIER()[0].getText()
+            iterable = ctx.IDENTIFIER()[1].getText()
+            body = [self.visit(content, input_lines) for content in ctx.block().blockContent()] if ctx.block().blockContent() else []
+            line = ctx.start.line
+            return ForExpression(var_name, iterable, body, line)
+        elif isinstance(ctx, codeDebugParser.IfStatementContext):
+            condition = self.visit(ctx.expression(), input_lines)
+            then_block = [self.visit(content, input_lines) for content in ctx.block(0).blockContent()] if ctx.block(0).blockContent() else []
+            else_block = [self.visit(content, input_lines) for content in ctx.block(1).blockContent()] if ctx.block(1) and ctx.block(1).blockContent() else []
+            line = ctx.start.line
+            return IfExpression(condition, then_block, else_block, line)
+        elif isinstance(ctx, codeDebugParser.VarExprContext):
+            return self.visit(ctx.valueIndicator(), input_lines)
+        elif isinstance(ctx, codeDebugParser.NumExprContext):
+            return NumberExpression(ctx.NUMBER().getText(), ctx.start.line)
+        elif isinstance(ctx, codeDebugParser.StrExprContext):
+            return StringExpression(ctx.stringValue().getText(), ctx.start.line)
+        elif isinstance(ctx, codeDebugParser.BoolExprContext):
+            value = ctx.boolean().getText().lower() == "true"
+            return BooleanExpression(value, ctx.start.line)
+        elif isinstance(ctx, codeDebugParser.MulDivExprContext):
+            left = self.visit(ctx.expression(0), input_lines)
+            right = self.visit(ctx.expression(1), input_lines)
+            op = ctx.MUL() and "*" or "/"
+            return BinaryExpression(op, left, right, ctx.start.line)
+        elif isinstance(ctx, codeDebugParser.AddSubExprContext):
+            left = self.visit(ctx.expression(0), input_lines)
+            right = self.visit(ctx.expression(1), input_lines)
+            op = ctx.ADD() and "+" or "-"
+            return BinaryExpression(op, left, right, ctx.start.line)
+        elif isinstance(ctx, codeDebugParser.ParenExprContext):
+            return self.visit(ctx.expression(), input_lines)
         else:
-            print(f"Unhandled node type: {type(ctx).__name__}", file=sys.stderr)
+            print(f"Unhandled node type: {type(ctx).__name__} with text: {ctx.getText()}", file=sys.stderr)
             sys.stderr.flush()
             raise ValueError(f"Unhandled node type: {type(ctx).__name__}")
+
+# (Giữ nguyên các phần còn lại của run.py)
 
 def process_input(input_content: str):
     """Process the input content through lexer, parser, AST, and interpreter."""
@@ -266,7 +383,7 @@ def process_input(input_content: str):
         context = Context(input_content.splitlines())
         ast_builder = ASTBuilder()
         ast = ast_builder.build(tree, input_content.splitlines())
-
+       
         if ast is None:
             print(json.dumps({"success": False, "errors": ["Failed to build AST"]}))
             print("Run tests completely", file=sys.stderr)

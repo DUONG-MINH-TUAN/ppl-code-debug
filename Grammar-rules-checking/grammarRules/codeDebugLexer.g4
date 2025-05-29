@@ -2,6 +2,7 @@ lexer grammar codeDebugLexer;
 
 NEW: 'new' -> pushMode(DATE_MODE);
 
+
 RETURN: 'return';
 CONST: 'const';
 VAR: 'var';
@@ -14,6 +15,14 @@ LOG: 'log';
 TRUE: 'true';
 FALSE: 'false';
 NULL: 'null';
+FOR: 'for';  
+OF: 'of';    
+IF: 'if';    
+ELSE: 'else'; 
+ADD: '+';    
+SUB: '-';       
+MUL: '*';    
+DIV: '/';
 
 BIGINT_LITERAL: [0-9]+ 'n';
 
@@ -36,27 +45,42 @@ COMMA: ',';
 EQUAL: '=';
 SINGLE_QUOTE: '\'';
 DOUBLE_QUOTE: '"';
-LEFT_ANGLE_BRACKET: '<';
+LEFT_ANGLE_BRACKET: '<' -> pushMode(TAG_MODE);  // Chuyển sang TAG_MODE khi gặp <
 RIGHT_ANGLE_BRACKET: '>';
-SLASH: '/';
 SEMICOLON: ';';
 IMPLIE: '=>';
 DOT: '.';
-fragment CARRIAGE_RETURN:'\r';
-LINE_FEED:'\n'+;
 
 IDENTIFIER: [a-zA-Z][a-zA-Z0-9]*;
 
 NUMBER: [0-9][0-9]*;
 
-NEWLINE: CARRIAGE_RETURN* LINE_FEED;
-
-WS: [ \t\r\n]+ -> skip;
+WS: [ \t\r\n]+ -> skip;  // Bỏ qua whitespace và newline trong mode mặc định
 
 fragment STRING_CONTENT: (~["'\\] | '\\' ["'\\])*;
 SINGLE_QUOTE_STRING: '\'' STRING_CONTENT '\'' -> type(STRING_VALUE);
 DOUBLE_QUOTE_STRING: '"' STRING_CONTENT '"' -> type(STRING_VALUE);
 STRING_VALUE: SINGLE_QUOTE_STRING | DOUBLE_QUOTE_STRING;
+
+
+// Nhận diện thẻ mở JSX và đẩy vào TAG_MODE
+JSX_OPEN_TAG: LEFT_ANGLE_BRACKET IDENTIFIER -> pushMode(TAG_MODE);
+// Nhận diện thẻ đóng JSX và đẩy vào TAG_MODE
+JSX_CLOSE_TAG: LEFT_ANGLE_BRACKET DIV -> pushMode(TAG_MODE);
+// Nhận diện fragment mở
+JSX_FRAGMENT_OPEN: LEFT_ANGLE_BRACKET RIGHT_ANGLE_BRACKET -> pushMode(TAG_MODE);
+// Nhận diện fragment đóng
+JSX_FRAGMENT_CLOSE: LEFT_ANGLE_BRACKET DIV RIGHT_ANGLE_BRACKET -> pushMode(TAG_MODE);
+
+
+// Mode để xử lý thẻ HTML/JSX
+mode TAG_MODE;
+TAG_SLASH: '/' -> type(DIV);  
+TAG_TEXT: ~[<>}{]+;  
+TAG_IDENTIFIER: [a-zA-Z][a-zA-Z0-9]* -> type(IDENTIFIER);
+TAG_RIGHT_ANGLE_BRACKET: '>' -> type(RIGHT_ANGLE_BRACKET), popMode;  
+TAG_LEFT_ANGLE_BRACKET: '<' -> type(LEFT_ANGLE_BRACKET);
+TAG_WS: [ \t\r\n]+ -> skip;
 
 mode DATE_MODE;
 SPACE: [ \t\r\n]+;  

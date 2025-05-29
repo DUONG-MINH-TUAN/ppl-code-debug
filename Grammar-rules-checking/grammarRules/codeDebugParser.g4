@@ -2,12 +2,13 @@ parser grammar codeDebugParser;
 
 options {
     tokenVocab=codeDebugLexer;  
+    
 }
 
 // Parser rules 
 program: main_structure EOF; 
 
-main_structure: (import_statement)? function_declaration*;
+main_structure: (import_statement)? (statement | function_declaration)*;
 
 // Function declaration with unique IDENTIFIER
 function_declaration: FUNCTION IDENTIFIER parameter_list body_function
@@ -33,13 +34,34 @@ content: stateSetter stat_breakDown
        | useCallbackCall stat_breakDown
        | dateDeclaration stat_breakDown   
        | return_statement stat_breakDown
-       | variableDeclaration stat_breakDown;
+       | variableDeclaration stat_breakDown
+       | forStatement stat_breakDown
+       | ifStatement stat_breakDown;
 
 // Types of variable
 variableTypes: CONST | VAR | LET;
 
 // General variable declaration
-variableDeclaration: variableTypes IDENTIFIER EQUAL (stringValue | NUMBER | boolean | BIGINT_LITERAL | NULL | SYMBOL_FUNC | array | NEW DATE_FUNC);
+variableDeclaration: variableTypes IDENTIFIER EQUAL (stringValue | NUMBER | boolean | BIGINT_LITERAL | NULL | SYMBOL_FUNC | array | NEW DATE_FUNC | genericType);
+
+// Generic type (e.g., Integer<String>)
+genericType: IDENTIFIER LEFT_ANGLE_BRACKET typeArgument RIGHT_ANGLE_BRACKET;
+typeArgument: IDENTIFIER | genericType;
+
+// Statement (có thể xuất hiện độc lập)
+statement: variableDeclaration stat_breakDown
+         | consoleCommand stat_breakDown
+         | ifStatement
+         | forStatement
+         | useEffectCall stat_breakDown
+         | useCallbackCall stat_breakDown
+         | stateSetter stat_breakDown
+         | bigIntDeclaration stat_breakDown
+         | numberDeclaration stat_breakDown
+         | stringDeclaration stat_breakDown
+         | arrowFunction stat_breakDown
+         | arrayDeclaration stat_breakDown
+         | dateDeclaration stat_breakDown;
 
 // Values for types 
 array: LEFT_SQUARE_BRACKET arrayValue* RIGHT_SQUARE_BRACKET;
@@ -51,16 +73,18 @@ stringValue: STRING_VALUE;
 
 // Element with matching open and close tags
 element: openTag elementContent* closeTag
-    | fragmentOpen elementContent* fragmentClose
-    | emptyFragment;
-emptyFragment: LEFT_ANGLE_BRACKET RIGHT_ANGLE_BRACKET LEFT_ANGLE_BRACKET SLASH RIGHT_ANGLE_BRACKET; // <></>
-fragmentOpen: LEFT_ANGLE_BRACKET RIGHT_ANGLE_BRACKET; // <>
-fragmentClose: LEFT_ANGLE_BRACKET SLASH RIGHT_ANGLE_BRACKET; // </>
-openTag: LEFT_ANGLE_BRACKET IDENTIFIER RIGHT_ANGLE_BRACKET;
-closeTag: LEFT_ANGLE_BRACKET SLASH IDENTIFIER RIGHT_ANGLE_BRACKET; // Ensure IDENTIFIER matches openTag
+       | fragmentOpen elementContent* fragmentClose
+       | emptyFragment
+       | selfClosingTag;
+emptyFragment: JSX_FRAGMENT_OPEN JSX_FRAGMENT_CLOSE;
+fragmentOpen: JSX_FRAGMENT_OPEN;
+fragmentClose: JSX_FRAGMENT_CLOSE;
+openTag: JSX_OPEN_TAG;
+closeTag: JSX_CLOSE_TAG IDENTIFIER RIGHT_ANGLE_BRACKET;
+selfClosingTag: JSX_OPEN_TAG DIV RIGHT_ANGLE_BRACKET;
 
 // Content of the element
-elementContent: element | valueIndicator;
+elementContent: element | valueIndicator | TAG_TEXT;
 valueIndicator: LEFT_BRACE IDENTIFIER RIGHT_BRACE;  
 
 // Primitive data
@@ -101,7 +125,36 @@ return_statement: RETURN LEFT_PARENTHESIS element RIGHT_PARENTHESIS;
 consoleCommand: CONSOLE DOT LOG LEFT_PARENTHESIS (stringValue | IDENTIFIER)? RIGHT_PARENTHESIS;
 
 // Statement Breakdown
-stat_breakDown: NEWLINE (SEMICOLON)? | SEMICOLON;
+stat_breakDown: SEMICOLON;
+
+// for Statement
+forStatement: FOR LEFT_PARENTHESIS IDENTIFIER OF IDENTIFIER RIGHT_PARENTHESIS block;
+
+// if Statement
+ifStatement: IF LEFT_PARENTHESIS expression RIGHT_PARENTHESIS block (ELSE block)?;
+
+// Block for control structures
+block: LEFT_BRACE blockContent* RIGHT_BRACE;
+blockContent: stateSetter stat_breakDown
+            | useEffectCall stat_breakDown
+            | bigIntDeclaration stat_breakDown
+            | numberDeclaration stat_breakDown
+            | stringDeclaration stat_breakDown
+            | arrowFunction stat_breakDown
+            | arrayDeclaration stat_breakDown
+            | consoleCommand stat_breakDown
+            | useCallbackCall stat_breakDown
+            | dateDeclaration stat_breakDown   
+            | variableDeclaration stat_breakDown;
+
+// Expression for conditions
+expression: valueIndicator                     # varExpr
+          | NUMBER                              # numExpr
+          | stringValue                         # strExpr
+          | boolean                             # boolExpr
+          | expression op=(MUL | DIV) expression  # mulDivExpr
+          | expression op=(ADD | SUB) expression  # addSubExpr
+          | LEFT_PARENTHESIS expression RIGHT_PARENTHESIS # parenExpr;
 
 // Error Handling
 errorRule: .+? (SEMICOLON | RIGHT_BRACE | EOF);
