@@ -31,11 +31,10 @@ app.post("/check-grammar", (req, res) => {
     return res.status(400).json({ success: false, error: "Input is required" });
   }
 
-  // Chuẩn hóa input: thay thế ký tự xuống dòng bằng khoảng trắng, giữ khoảng trắng giữa các từ
+  // Chuẩn hóa input: chỉ thay thế ký tự xuống dòng, giữ nguyên khoảng trắng giữa các từ
   const normalizedInput = input
-    .replace(/(\r\n|\n|\r)/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+    .replace(/(\r\n|\n|\r)/g, " ") // Thay xuống dòng bằng khoảng trắng
+    .trim(); // Loại bỏ khoảng trắng thừa ở đầu và cuối
 
   // Chạy script Python
   const pythonProcess = spawn("py", [`"${pythonScriptPath}"`, "test"], {
@@ -93,12 +92,10 @@ app.post("/check-grammar", (req, res) => {
 
   // Xử lý lỗi khi spawn thất bại
   pythonProcess.on("error", (err) => {
-    res
-      .status(500)
-      .json({
-        success: false,
-        error: `Failed to start Python process: ${err.message}`,
-      });
+    res.status(500).json({
+      success: false,
+      error: `Failed to start Python process: ${err.message}`,
+    });
   });
 });
 

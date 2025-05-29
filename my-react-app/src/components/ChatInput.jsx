@@ -25,71 +25,71 @@ function ChatInput({ onSendMessage }) {
     adjustTextareaHeight();
   }, [inputValue]);
 
-  const checkGrammar = async (code, callback) => {
-    try {
-      const response = await axios.post("http://localhost:3000/check-grammar", {
-        input: code,
-      });
-      setResult(response.data);
+  // const checkGrammar = async (code, callback) => {
+  //   try {
+  //     const response = await axios.post("http://localhost:3000/check-grammar", {
+  //       input: code,
+  //     });
+  //     setResult(response.data);
 
-      if (!response.data.success) {
-        console.error("Grammar check failed:", response.data.error);
-        const errorMessage = response.data.error;
-        toast.error(errorMessage, {
-          position: "top-center",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        });
-        // Pass error message to ChatContainer
-        callback(errorMessage, 'error');
-      } else if (!response.data.result.success) {
-        console.error("Invalid syntax:", response.data.result.errors);
-        const errorMessages = response.data.result.errors;
-        errorMessages.forEach((error) => {
-          toast.error(error, {
-            position: "top-center",
-            autoClose: 5000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          });
-        });
-        // Pass combined error messages to ChatContainer
-        const combinedErrors = errorMessages.join(', ');
-        callback(combinedErrors, 'error');
-      } else {
-        const successMessage = response.data.result.message;
-        toast.success(successMessage, {
-          position: "top-center",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        });
-        // Pass success message to ChatContainer
-        callback(successMessage, 'success');
-      }
-    } catch (error) {
-      setResult({ success: false, error: "Server error" });
-      console.error("Error calling grammar check API:", error.message);
-      const errorMessage = "Server error: " + error.message;
-      toast.error(errorMessage, {
-        position: "top-center",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      });
-      // Pass server error to ChatContainer
-      callback(errorMessage, 'error');
-    }
-  };
+  //     if (!response.data.success) {
+  //       console.error("Grammar check failed:", response.data.error);
+  //       const errorMessage = response.data.error;
+  //       toast.error(errorMessage, {
+  //         position: "top-center",
+  //         autoClose: 5000,
+  //         hideProgressBar: false,
+  //         closeOnClick: true,
+  //         pauseOnHover: true,
+  //         draggable: true,
+  //       });
+  //       // Pass error message to ChatContainer
+  //       callback(errorMessage, "error");
+  //     } else if (!response.data.result.success) {
+  //       console.error("Invalid syntax:", response.data.result.errors);
+  //       const errorMessages = response.data.result.errors;
+  //       errorMessages.forEach((error) => {
+  //         toast.error(error, {
+  //           position: "top-center",
+  //           autoClose: 5000,
+  //           hideProgressBar: false,
+  //           closeOnClick: true,
+  //           pauseOnHover: true,
+  //           draggable: true,
+  //         });
+  //       });
+  //       // Pass combined error messages to ChatContainer
+  //       const combinedErrors = errorMessages.join(", ");
+  //       callback(combinedErrors, "error");
+  //     } else {
+  //       const successMessage = response.data.result.message;
+  //       toast.success(successMessage, {
+  //         position: "top-center",
+  //         autoClose: 5000,
+  //         hideProgressBar: false,
+  //         closeOnClick: true,
+  //         pauseOnHover: true,
+  //         draggable: true,
+  //       });
+  //       // Pass success message to ChatContainer
+  //       callback(successMessage, "success");
+  //     }
+  //   } catch (error) {
+  //     setResult({ success: false, error: "Server error" });
+  //     console.error("Error calling grammar check API:", error.message);
+  //     const errorMessage = "Server error: " + error.message;
+  //     toast.error(errorMessage, {
+  //       position: "top-center",
+  //       autoClose: 5000,
+  //       hideProgressBar: false,
+  //       closeOnClick: true,
+  //       pauseOnHover: true,
+  //       draggable: true,
+  //     });
+  //     // Pass server error to ChatContainer
+  //     callback(errorMessage, "error");
+  //   }
+  // };
 
   const handleAttachClick = () => {
     fileInputRef.current.click();
@@ -110,19 +110,19 @@ function ChatInput({ onSendMessage }) {
     event.preventDefault();
     if (inputValue.trim()) {
       console.log("Sending useEffect code:", inputValue);
-      
+
       // Pass the message and grammar check result to parent component
       onSendMessage(inputValue.trim(), (grammarResponse, type) => {
         // This callback will be called when grammar check completes
         // grammarResponse contains the same message as toast
         // type can be 'success' or 'error'
       });
-      
+
       // Check grammar with callback
-      checkGrammar(inputValue, (grammarResponse, type) => {
-        // Grammar check completed, response already sent via onSendMessage
-      });
-      
+      // checkGrammar(inputValue, (grammarResponse, type) => {
+      //   // Grammar check completed, response already sent via onSendMessage
+      // });
+
       setInputValue("");
       setTimeout(adjustTextareaHeight, 0);
     }
@@ -149,7 +149,7 @@ function ChatInput({ onSendMessage }) {
         <textarea
           ref={textareaRef}
           className="chat-input"
-          placeholder="Enter code, e.g., function MyComponent(props) { const [count, setCount] = useState(0); return (<div>{count}</div>); }"
+          placeholder="Enter code"
           value={inputValue}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
