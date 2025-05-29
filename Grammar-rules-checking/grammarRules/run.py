@@ -7,7 +7,6 @@ from typing import List
 from dotenv import load_dotenv
 import re
 from antlr4 import *
-from dotenv import load_dotenv
 from CompiledFiles.codeDebugLexer import codeDebugLexer
 from CompiledFiles.codeDebugParser import codeDebugParser
 from antlr4.error.ErrorListener import ErrorListener
@@ -15,43 +14,46 @@ from antlr4.error.ErrorListener import ErrorListener
 from interpreter.context import Context
 from interpreter.expression import Expression, ProgramExpression
 from interpreter.non_terminal_expression import (
-    FunctionDeclarationExpression,
-    ElementExpression, VariableDeclarationExpression, 
+    FunctionDeclarationExpression, ElementExpression, VariableDeclarationExpression,
     ReturnStatementExpression, StateSetterExpression, ArrayExpression,
     UseEffectExpression, UseCallbackExpression, ConsoleCommandExpression,
     ArrowFunctionExpression, ForExpression, IfExpression
 )
 from interpreter.terminal_expression import (
-    StringExpression, NumberExpression, ImportExpression, ValueIndicatorExpression, 
+    StringExpression, NumberExpression, ImportExpression, ValueIndicatorExpression,
     BigIntExpression, DateExpression, BooleanExpression, BinaryExpression
 )
 
+# Load environment variables
 load_dotenv()
 ANTLR_JAR = os.getenv("ANTLR_DIR")
 
-# Define variables
+# Constants
 DIR = os.path.dirname(__file__)
-CPL_Dest = "CompiledFiles"
+CPL_DEST = "CompiledFiles"
 LEXER_SRC = "codeDebugLexer.g4"
 PARSER_SRC = "codeDebugParser.g4"
 TEMP_FILE = "temp.js"
 
-def printUsage():
+def print_usage():
+    """Print usage instructions for the script."""
     print("python run.py gen", file=sys.stderr)
     print("python run.py test \"<input string>\"", file=sys.stderr)
     sys.stderr.flush()
 
-def printBreak():
+def print_break():
+    """Print a separator line for better log readability."""
     print("-----------------------------------------------", file=sys.stderr)
     sys.stderr.flush()
 
-def generateAntlr2Python():
+def generate_antlr2python():
+    """Generate Python lexer and parser files using ANTLR."""
     print("Antlr4 is running...", file=sys.stderr)
-    os.makedirs(CPL_Dest, exist_ok=True)
+    os.makedirs(CPL_DEST, exist_ok=True)
     print(f"Generating lexer from {LEXER_SRC}...", file=sys.stderr)
-    subprocess.run(["java", "-jar", ANTLR_JAR, "-o", CPL_Dest, "-no-listener", "-Dlanguage=Python3", LEXER_SRC])
+    subprocess.run(["java", "-jar", ANTLR_JAR, "-o", CPL_DEST, "-no-listener", "-Dlanguage=Python3", LEXER_SRC])
     print(f"Generating parser from {PARSER_SRC}...", file=sys.stderr)
-    subprocess.run(["java", "-jar", ANTLR_JAR, "-o", CPL_Dest, "-no-listener", "-Dlanguage=Python3", PARSER_SRC])
+    subprocess.run(["java", "-jar", ANTLR_JAR, "-o", CPL_DEST, "-no-listener", "-Dlanguage=Python3", PARSER_SRC])
     print("Generate successfully", file=sys.stderr)
     sys.stderr.flush()
 
@@ -69,6 +71,7 @@ def clean_input(input_string: str) -> str:
     return '\n'.join(line.strip() for line in lines.split('\n') if line.strip())
 
 class CustomErrorListener(ErrorListener):
+    """Custom error listener for ANTLR syntax errors."""
     def __init__(self, input_content):
         self.errors = []
         self.input_lines = input_content.splitlines()
@@ -87,24 +90,26 @@ class CustomErrorListener(ErrorListener):
         error_message = f"Syntax error at line {line}, column {column}: "
         suggestion = ""
         offending_token = offendingSymbol.text if offendingSymbol else "<unknown>"
-        if "missing" in msg:
-            missing_token = msg.split("missing ")[1].split(" at")[0].strip()
+
+        if "missing" in msg.lower():
+            missing_token = msg.split("missing ")[1].split(" at")[0].strip("'")
             missing_token = token_map.get(missing_token, missing_token)
             error_message += f"Missing {missing_token} before '{offending_token}'."
-            suggestion = f"Check and add a {missing_token} at the appropriate position."
-        elif "mismatched input" in msg:
+            suggestion = f"Try adding a {missing_token} before '{offending_token}'."
+        elif "mismatched input" in msg.lower():
             expected_token = msg.split("expecting ")[1].strip() if "expecting" in msg else "<unknown>"
             expected_token = token_map.get(expected_token, expected_token)
             error_message += f"Found '{offending_token}' but expected {expected_token}."
-            suggestion = f"Check the syntax near '{offending_token}' and ensure {expected_token} is used correctly."
-        elif "extraneous input" in msg:
+            suggestion = f"Replace '{offending_token}' with {expected_token} or check the syntax near this position."
+        elif "extraneous input" in msg.lower():
             expected_token = msg.split("expecting ")[1].strip() if "expecting" in msg else "<unknown>"
             expected_token = token_map.get(expected_token, expected_token)
             error_message += f"Unexpected '{offending_token}', expected {expected_token}."
-            suggestion = f"Check and remove or replace '{offending_token}' with {expected_token}."
+            suggestion = f"Remove or replace '{offending_token}' with {expected_token}."
         else:
             error_message += msg
             suggestion = "Review the syntax at this line."
+
         if line <= len(self.input_lines):
             error_message += f"\nLine {line}: {self.input_lines[line-1].strip()}"
             error_message += f"\n{' ' * (column + len(str(line)) + 2)}^"
@@ -112,9 +117,8 @@ class CustomErrorListener(ErrorListener):
             error_message += f"\nSuggestion: {suggestion}"
         self.errors.append(error_message)
 
-# (Giữ nguyên các phần khác của run.py, chỉ cập nhật phần visit)
-
 class ASTBuilder:
+    """Builds an Abstract Syntax Tree (AST) from the ANTLR parse tree."""
     def build(self, ctx, input_lines: List[str]) -> Expression:
         print(f"Building AST for {type(ctx).__name__}", file=sys.stderr)
         sys.stderr.flush()
@@ -137,6 +141,35 @@ class ASTBuilder:
             params = [param.getText() for param in ctx.parameter_list().parameter()] if ctx.parameter_list().parameter() else []
             body = [self.visit(content, input_lines) for content in ctx.body_function().content()] if ctx.body_function().content() else []
             return FunctionDeclarationExpression(name, line, params, body)
+        elif isinstance(ctx, codeDebugParser.StatementContext):
+            if ctx.variableDeclaration():
+                return self.visit(ctx.variableDeclaration(), input_lines)
+            elif ctx.consoleCommand():
+                return self.visit(ctx.consoleCommand(), input_lines)
+            elif ctx.ifStatement():
+                return self.visit(ctx.ifStatement(), input_lines)
+            elif ctx.forStatement():
+                return self.visit(ctx.forStatement(), input_lines)
+            elif ctx.useEffectCall():
+                return self.visit(ctx.useEffectCall(), input_lines)
+            elif ctx.useCallbackCall():
+                return self.visit(ctx.useCallbackCall(), input_lines)
+            elif ctx.stateSetter():
+                return self.visit(ctx.stateSetter(), input_lines)
+            elif ctx.bigIntDeclaration():
+                return self.visit(ctx.bigIntDeclaration(), input_lines)
+            elif ctx.numberDeclaration():
+                return self.visit(ctx.numberDeclaration(), input_lines)
+            elif ctx.stringDeclaration():
+                return self.visit(ctx.stringDeclaration(), input_lines)
+            elif ctx.arrowFunction():
+                return self.visit(ctx.arrowFunction(), input_lines)
+            elif ctx.arrayDeclaration():
+                return self.visit(ctx.arrayDeclaration(), input_lines)
+            elif ctx.dateDeclaration():
+                return self.visit(ctx.dateDeclaration(), input_lines)
+            else:
+                raise ValueError(f"Unhandled statement child: {ctx.getText()}")
         elif isinstance(ctx, codeDebugParser.ContentContext):
             if ctx.stateSetter():
                 return self.visit(ctx.stateSetter(), input_lines)
@@ -169,12 +202,8 @@ class ASTBuilder:
             else:
                 raise ValueError(f"Unhandled content child: {ctx.getText()}")
         elif isinstance(ctx, codeDebugParser.ElementContext):
-            open_tag = ""
-            close_tag = ""
-            if ctx.openTag():
-                open_tag = ctx.openTag().getText().lstrip('<').rstrip('>')
-            if ctx.closeTag():
-                close_tag = ctx.closeTag().IDENTIFIER().getText()
+            open_tag = ctx.openTag().getText().lstrip('<').rstrip('>') if ctx.openTag() else ""
+            close_tag = ctx.closeTag().IDENTIFIER().getText() if ctx.closeTag() else ""
             line = ctx.start.line
             content = [self.visit(content, input_lines) for content in ctx.elementContent()] if ctx.elementContent() else []
             return ElementExpression(open_tag, close_tag, line, content)
@@ -182,11 +211,7 @@ class ASTBuilder:
             tag = ctx.JSX_OPEN_TAG().getText().lstrip('<').rstrip('>')
             line = ctx.start.line
             return ElementExpression(tag, tag, line, [])
-        elif isinstance(ctx, codeDebugParser.FragmentOpenContext):
-            return ElementExpression("", "", ctx.start.line, [])
-        elif isinstance(ctx, codeDebugParser.FragmentCloseContext):
-            return ElementExpression("", "", ctx.start.line, [])
-        elif isinstance(ctx, codeDebugParser.EmptyFragmentContext):
+        elif isinstance(ctx, codeDebugParser.FragmentOpenContext) or isinstance(ctx, codeDebugParser.FragmentCloseContext) or isinstance(ctx, codeDebugParser.EmptyFragmentContext):
             return ElementExpression("", "", ctx.start.line, [])
         elif isinstance(ctx, codeDebugParser.ElementContentContext):
             if ctx.element():
@@ -205,27 +230,19 @@ class ASTBuilder:
                 value = self.visit(ctx.stringValue(), input_lines)
             elif ctx.NUMBER():
                 value = NumberExpression(ctx.NUMBER().getText(), line)
-            elif ctx.array():
-                value = self.visit(ctx.array(), input_lines)
+            elif ctx.boolean():
+                value = BooleanExpression(ctx.boolean().getText().lower() == "true", line)
             elif ctx.BIGINT_LITERAL():
                 value = BigIntExpression(ctx.BIGINT_LITERAL().getText(), line)
+            elif ctx.NULL():
+                value = StringExpression("null", line)
+            elif ctx.SYMBOL_FUNC():
+                value = StringExpression("Symbol()", line)
+            elif ctx.array():
+                value = self.visit(ctx.array(), input_lines)
             elif ctx.NEW():
                 value = DateExpression(line)
-            elif ctx.genericType():
-                value = self.visit(ctx.genericType(), input_lines)
             return VariableDeclarationExpression(name, line, value)
-        elif isinstance(ctx, codeDebugParser.GenericTypeContext):
-            base_type = ctx.IDENTIFIER(0).getText()
-            type_arg = self.visit(ctx.typeArgument(), input_lines)
-            line = ctx.start.line
-            return StringExpression(f"{base_type}<{type_arg.value}>", line)
-        elif isinstance(ctx, codeDebugParser.TypeArgumentContext):
-            if ctx.IDENTIFIER():
-                return StringExpression(ctx.IDENTIFIER().getText(), ctx.start.line)
-            elif ctx.genericType():
-                return self.visit(ctx.genericType(), input_lines)
-            else:
-                raise ValueError(f"Unhandled typeArgument child: {ctx.getText()}")
         elif isinstance(ctx, codeDebugParser.BigIntDeclarationContext):
             name = ctx.IDENTIFIER().getText()
             line = ctx.IDENTIFIER().symbol.line
@@ -325,21 +342,19 @@ class ASTBuilder:
         elif isinstance(ctx, codeDebugParser.MulDivExprContext):
             left = self.visit(ctx.expression(0), input_lines)
             right = self.visit(ctx.expression(1), input_lines)
-            op = ctx.MUL() and "*" or "/"
+            op = "*" if ctx.MUL() else "/"
             return BinaryExpression(op, left, right, ctx.start.line)
         elif isinstance(ctx, codeDebugParser.AddSubExprContext):
             left = self.visit(ctx.expression(0), input_lines)
             right = self.visit(ctx.expression(1), input_lines)
-            op = ctx.ADD() and "+" or "-"
+            op = "+" if ctx.ADD() else "-"
             return BinaryExpression(op, left, right, ctx.start.line)
         elif isinstance(ctx, codeDebugParser.ParenExprContext):
             return self.visit(ctx.expression(), input_lines)
         else:
-            print(f"Unhandled node type: {type(ctx).__name__} with text: {ctx.getText()}", file=sys.stderr)
+            print(f"Unhandled node type: {type(ctx).__name__}", file=sys.stderr)
             sys.stderr.flush()
             raise ValueError(f"Unhandled node type: {type(ctx).__name__}")
-
-# (Giữ nguyên các phần còn lại của run.py)
 
 def process_input(input_content: str):
     """Process the input content through lexer, parser, AST, and interpreter."""
@@ -397,8 +412,7 @@ def process_input(input_content: str):
         ast.interpret(context)
 
         # Check for return statement
-        has_return = "return" in input_content.lower()
-        if not has_return:
+        if "return" not in input_content.lower():
             context.errors.append("No return statement found in functional component")
 
         # Output results
@@ -410,17 +424,17 @@ def process_input(input_content: str):
         print(f"Exception occurred: {str(e)}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
         sys.stderr.flush()
-        errors = error_listener.errors if error_listener.errors else [f"Parsing error: {str(e)}"]
+        errors = error_listener.errors if error_listener.errors else [f"Error while building AST: {str(e)}"]
         print(json.dumps({"success": False, "errors": errors}))
 
     print("Run tests completely", file=sys.stderr)
     sys.stderr.flush()
 
-def runTest():
+def run_test():
+    """Run test cases for the input content."""
     print("Running testcases...", file=sys.stderr)
     sys.stderr.flush()
 
-    # Check if input is provided via command-line argument
     if len(sys.argv) < 3:
         # Fallback to stdin for compatibility with piped input
         input_content = sys.stdin.read().strip()
@@ -431,28 +445,26 @@ def runTest():
     input_content = sys.argv[2]
     cleaned_input = clean_input(input_content)
 
-    # Write cleaned input to temporary file
+    # Write cleaned input to temporary file and process it
     try:
         with open(TEMP_FILE, "w", encoding="utf-8") as f:
             f.write(cleaned_input)
-        
-        # Run the script again with input from temp file
         cmd = f"type {TEMP_FILE} | python {sys.argv[0]} test"
         subprocess.run(cmd, shell=True)
     finally:
-        # Clean up temporary file
         if os.path.exists(TEMP_FILE):
             os.remove(TEMP_FILE)
 
 def main(argv):
+    """Main entry point for the script."""
     if len(argv) < 1:
-        printUsage()
+        print_usage()
     elif argv[0] == "gen":
-        generateAntlr2Python()
+        generate_antlr2python()
     elif argv[0] == "test":
-        runTest()
+        run_test()
     else:
-        printUsage()
+        print_usage()
 
 if __name__ == "__main__":
     main(sys.argv[1:])

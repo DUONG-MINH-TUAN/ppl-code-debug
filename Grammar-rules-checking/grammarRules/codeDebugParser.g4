@@ -2,7 +2,6 @@ parser grammar codeDebugParser;
 
 options {
     tokenVocab=codeDebugLexer;  
-    
 }
 
 // Parser rules 
@@ -41,12 +40,8 @@ content: stateSetter stat_breakDown
 // Types of variable
 variableTypes: CONST | VAR | LET;
 
-// General variable declaration
-variableDeclaration: variableTypes IDENTIFIER EQUAL (stringValue | NUMBER | boolean | BIGINT_LITERAL | NULL | SYMBOL_FUNC | array | NEW DATE_FUNC | genericType);
-
-// Generic type (e.g., Integer<String>)
-genericType: IDENTIFIER LEFT_ANGLE_BRACKET typeArgument RIGHT_ANGLE_BRACKET;
-typeArgument: IDENTIFIER | genericType;
+// General variable declaration (loại bỏ genericType)
+variableDeclaration: variableTypes IDENTIFIER EQUAL (stringValue | NUMBER | boolean | BIGINT_LITERAL | NULL | SYMBOL_FUNC | array | NEW DATE_FUNC);
 
 // Statement (có thể xuất hiện độc lập)
 statement: variableDeclaration stat_breakDown
