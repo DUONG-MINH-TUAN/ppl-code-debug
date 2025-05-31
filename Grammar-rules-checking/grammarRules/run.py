@@ -411,8 +411,9 @@ def process_input(input_content: str):
         sys.stderr.flush()
         ast.interpret(context)
 
-        # Check for return statement
-        if "return" not in input_content.lower():
+        # Check for return statement only if the input contains a function declaration
+        is_functional_component = "function" in input_content.lower() or "export default" in input_content.lower()
+        if is_functional_component and "return" not in input_content.lower():
             context.errors.append("No return statement found in functional component")
 
         # Output results
