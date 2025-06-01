@@ -11,22 +11,259 @@ from CompiledFiles.codeDebugLexer import codeDebugLexer
 from CompiledFiles.codeDebugParser import codeDebugParser
 from antlr4.error.ErrorListener import ErrorListener
 
-from interpreter.context import Context
-from interpreter.expression import Expression, ProgramExpression
-from interpreter.non_terminal_expression import (
-    FunctionDeclarationExpression, ElementExpression, VariableDeclarationExpression,
-    ReturnStatementExpression, StateSetterExpression, ArrayExpression,
-    UseEffectExpression, UseCallbackExpression, ConsoleCommandExpression,
-    ArrowFunctionExpression, ForExpression, IfExpression
-)
-from interpreter.terminal_expression import (
-    StringExpression, NumberExpression, ImportExpression, ValueIndicatorExpression,
-    BigIntExpression, DateExpression, BooleanExpression, BinaryExpression
-)
+# Define base Expression class
+class Expression:
+    def __init__(self, line: int):
+        self.line = line
 
-# Load environment variables
-load_dotenv()
-ANTLR_JAR = os.getenv("ANTLR_DIR")
+    def interpret(self, context):
+        pass
+
+# Define non-terminal expressions
+class ProgramExpression(Expression):
+    def __init__(self, import_stmt, functions):
+        super().__init__(0)
+        self.import_stmt = import_stmt
+        self.functions = functions
+
+    def interpret(self, context):
+        print(f"Interpreting ProgramExpression", file=sys.stderr)
+        context.current_scope = "global"
+        if self.import_stmt:
+            self.import_stmt.interpret(context)
+        for func in self.functions:
+            func.interpret(context)
+
+class FunctionDeclarationExpression(Expression):
+    def __init__(self, name, line, params, body):
+        super().__init__(line)
+        self.name = name
+        self.params = params
+        self.body = body
+
+    def interpret(self, context):
+        print(f"Interpreting FunctionDeclarationExpression: {self.name}", file=sys.stderr)
+        context.current_scope = self.name
+        for param in self.params:
+            context.add_symbol(param, self.name)
+        for expr in self.body:
+            expr.interpret(context)
+        context.current_scope = "global"
+
+class ElementExpression(Expression):
+    def __init__(self, open_tag, close_tag, line, content):
+        super().__init__(line)
+        self.open_tag = open_tag
+        self.close_tag = close_tag
+        self.content = content
+
+    def interpret(self, context):
+        for content in self.content:
+            content.interpret(context)
+
+class VariableDeclarationExpression(Expression):
+    def __init__(self, name, line, value):
+        super().__init__(line)
+        self.name = name
+        self.value = value
+
+    def interpret(self, context):
+        context.add_symbol(self.name, context.current_scope)
+        if self.value:
+            self.value.interpret(context)
+
+class ReturnStatementExpression(Expression):
+    def __init__(self, element, line):
+        super().__init__(line)
+        self.element = element
+
+    def interpret(self, context):
+        self.element.interpret(context)
+
+class StateSetterExpression(Expression):
+    def __init__(self, state_pair, initial_value, line):
+        super().__init__(line)
+        self.state_pair = state_pair
+        self.initial_value = initial_value
+
+    def interpret(self, context):
+        print(f"Interpreting StateSetterExpression: {self.state_pair}", file=sys.stderr)
+        context.add_symbol(self.state_pair[0], context.current_scope)  # Add state variable
+        context.check_hook("useState", self.line, context.current_scope)
+        if self.initial_value:
+            self.initial_value.interpret(context)
+
+class ArrayExpression(Expression):
+    def __init__(self, values, line):
+        super().__init__(line)
+        self.values = values
+
+    def interpret(self, context):
+        for value in self.values:
+            value.interpret(context)
+
+class UseEffectExpression(Expression):
+    def __init__(self, callback, deps, line):
+        super().__init__(line)
+        self.callback = callback
+        self.deps = deps
+
+    def interpret(self, context):
+        print(f"Interpreting UseEffectExpression at line {self.line}", file=sys.stderr)
+        context.check_hook("useEffect", self.line, context.current_scope, self.callback, self.deps)
+        if self.callback:
+            self.callback.interpret(context)
+
+class UseCallbackExpression(Expression):
+    def __init__(self, callback, deps, line):
+        super().__init__(line)
+        self.callback = callback
+        self.deps = deps
+
+    def interpret(self, context):
+        print(f"Interpreting UseCallbackExpression at line {self.line}", file=sys.stderr)
+        context.check_hook("useCallback", self.line, context.current_scope, self.callback, self.deps)
+        if self.callback:
+            self.callback.interpret(context)
+
+class ConsoleCommandExpression(Expression):
+    def __init__(self, arg, line):
+        super().__init__(line)
+        self.arg = arg
+
+    def interpret(self, context):
+        if self.arg:
+            self.arg.interpret(context)
+
+class ArrowFunctionExpression(Expression):
+    def __init__(self, params, body, line):
+        super().__init__(line)
+        self.params = params
+        self.body = body
+
+    def interpret(self, context):
+        for expr in self.body:
+            expr.interpret(context)
+
+class ForExpression(Expression):
+    def __init__(self, var_name, iterable, body, line):
+        super().__init__(line)
+        self.var_name = var_name
+        self.iterable = iterable
+        self.body = body
+
+    def interpret(self, context):
+        context.add_symbol(self.var_name, context.current_scope)
+        for expr in self.body:
+            expr.interpret(context)
+
+class IfExpression(Expression):
+    def __init__(self, condition, then_block, else_block, line):
+        super().__init__(line)
+        self.condition = condition
+        self.then_block = then_block
+        self.else_block = else_block
+
+    def interpret(self, context):
+        self.condition.interpret(context)
+        for expr in self.then_block:
+            expr.interpret(context)
+        for expr in self.else_block:
+            expr.interpret(context)
+
+# Define terminal expressions
+class StringExpression(Expression):
+    def __init__(self, value, line):
+        super().__init__(line)
+        self.value = value
+
+class NumberExpression(Expression):
+    def __init__(self, value, line):
+        super().__init__(line)
+        self.value = value
+
+class ImportExpression(Expression):
+    def __init__(self, hooks, line):
+        super().__init__(line)
+        self.hooks = hooks
+
+class ValueIndicatorExpression(Expression):
+    def __init__(self, name, line):
+        super().__init__(line)
+        self.name = name
+
+class BigIntExpression(Expression):
+    def __init__(self, value, line):
+        super().__init__(line)
+        self.value = value
+
+class DateExpression(Expression):
+    def __init__(self, line):
+        super().__init__(line)
+
+class BooleanExpression(Expression):
+    def __init__(self, value, line):
+        super().__init__(line)
+        self.value = value
+
+class BinaryExpression(Expression):
+    def __init__(self, op, left, right, line):
+        super().__init__(line)
+        self.op = op
+        self.left = left
+        self.right = right
+
+    def interpret(self, context):
+        self.left.interpret(context)
+        self.right.interpret(context)
+
+# Context class to manage scope and errors
+class Context:
+    def __init__(self, input_lines):
+        self.errors = []
+        self.input_lines = input_lines
+        self.current_scope = "global"  # Track if inside a function
+        self.symbols = {}  # Symbol table: scope -> set of variable names
+
+    def add_symbol(self, name: str, scope: str):
+        """Add a variable to the symbol table for a given scope."""
+        if scope not in self.symbols:
+            self.symbols[scope] = set()
+        self.symbols[scope].add(name)
+
+    def check_symbol(self, name: str, scope: str) -> bool:
+        """Check if a variable is defined in the given scope."""
+        return name in self.symbols.get(scope, set())
+
+    def check_hook(self, hook_type: str, line: int, scope: str, callback: Expression = None, deps: List[str] = None):
+        """Validate hook usage and dependencies."""
+        print(f"Checking hook: {hook_type} at line {line}, scope: {scope}", file=sys.stderr)
+        # Check if hook is called inside a component
+        if scope == "global":
+            self.errors.append(
+                f"Invalid {hook_type} call at line {line}: Hooks can only be called inside a React component or custom hook.\n"
+                f"Suggestion: Move the {hook_type} call inside a component function."
+            )
+        # Check callback for undefined variables and missing dependencies
+        if callback and deps is not None:
+            identifiers = set()
+            # Collect identifiers in callback
+            for content in callback.body:
+                if isinstance(content, ConsoleCommandExpression) and isinstance(content.arg, ValueIndicatorExpression):
+                    identifiers.add(content.arg.name)
+                elif isinstance(content, StateSetterExpression):
+                    identifiers.add(content.state_pair[0])  # Add state variable
+            for ident in identifiers:
+                if not self.check_symbol(ident, scope):
+                    self.errors.append(
+                        f"{hook_type} at line {line} references undefined variable '{ident}'.\n"
+                        f"Suggestion: Ensure '{ident}' is defined (e.g., via useState) and included in the dependency array."
+                    )
+                elif ident not in deps:
+                    self.errors.append(
+                        f"{hook_type} at line {line} has missing dependency: '{ident}' is used but not in the dependency array.\n"
+                        f"Suggestion: Add '{ident}' to the dependency array."
+                    )
 
 # Constants
 DIR = os.path.dirname(__file__)
@@ -34,6 +271,10 @@ CPL_DEST = "CompiledFiles"
 LEXER_SRC = "codeDebugLexer.g4"
 PARSER_SRC = "codeDebugParser.g4"
 TEMP_FILE = "temp.js"
+
+# Load environment variables
+load_dotenv()
+ANTLR_JAR = os.getenv("ANTLR_DIR")
 
 def print_usage():
     """Print usage instructions for the script."""
@@ -138,8 +379,20 @@ class ASTBuilder:
         elif isinstance(ctx, codeDebugParser.Function_declarationContext):
             name = ctx.IDENTIFIER().getText()
             line = ctx.IDENTIFIER().symbol.line
-            params = [param.getText() for param in ctx.parameter_list().parameter()] if ctx.parameter_list().parameter() else []
-            body = [self.visit(content, input_lines) for content in ctx.body_function().content()] if ctx.body_function().content() else []
+            params = []
+            if ctx.parameter_list() and ctx.parameter_list().parameter():
+                param_nodes = ctx.parameter_list().parameter()
+                if isinstance(param_nodes, list):
+                    params = [param.getText() for param in param_nodes if hasattr(param, 'getText')]
+                else:
+                    params = [param_nodes.getText()] if hasattr(param_nodes, 'getText') else []
+            body = []
+            if ctx.body_function() and ctx.body_function().content():
+                content_nodes = ctx.body_function().content()
+                if isinstance(content_nodes, list):
+                    body = [self.visit(content, input_lines) for content in content_nodes]
+                else:
+                    body = [self.visit(content_nodes, input_lines)]
             return FunctionDeclarationExpression(name, line, params, body)
         elif isinstance(ctx, codeDebugParser.StatementContext):
             if ctx.variableDeclaration():
@@ -265,21 +518,51 @@ class ASTBuilder:
             return StateSetterExpression(state_pair, initial_value, line)
         elif isinstance(ctx, codeDebugParser.UseEffectCallContext):
             callback = self.visit(ctx.callbackFunction(), input_lines) if ctx.callbackFunction() else None
-            deps = [param.getText() for param in ctx.dependencyArray().parameter()] if ctx.dependencyArray().parameter() else []
+            deps = []
+            if ctx.dependencyArray() and ctx.dependencyArray().parameter():
+                param_nodes = ctx.dependencyArray().parameter()
+                if isinstance(param_nodes, list):
+                    deps = [param.getText() for param in param_nodes if hasattr(param, 'getText')]
+                else:
+                    deps = [param_nodes.getText()] if hasattr(param_nodes, 'getText') else []
             line = ctx.start.line
             return UseEffectExpression(callback, deps, line)
         elif isinstance(ctx, codeDebugParser.UseCallbackCallContext):
             callback = self.visit(ctx.callbackFunction(), input_lines) if ctx.callbackFunction() else None
-            deps = [param.getText() for param in ctx.dependencyArray().parameter()] if ctx.dependencyArray().parameter() else []
+            deps = []
+            if ctx.dependencyArray() and ctx.dependencyArray().parameter():
+                param_nodes = ctx.dependencyArray().parameter()
+                if isinstance(param_nodes, list):
+                    deps = [param.getText() for param in param_nodes if hasattr(param, 'getText')]
+                else:
+                    deps = [param_nodes.getText()] if hasattr(param_nodes, 'getText') else []
             line = ctx.start.line
             return UseCallbackExpression(callback, deps, line)
         elif isinstance(ctx, codeDebugParser.CallbackFunctionContext):
-            body = [self.visit(content, input_lines) for content in ctx.content()] if ctx.content() else []
+            body = []
+            if ctx.content():
+                content_nodes = ctx.content()
+                if isinstance(content_nodes, list):
+                    body = [self.visit(content, input_lines) for content in content_nodes]
+                else:
+                    body = [self.visit(content_nodes, input_lines)]
             line = ctx.start.line
             return ArrowFunctionExpression([], body, line)
         elif isinstance(ctx, codeDebugParser.ArrowFunctionContext):
-            params = [param.getText() for param in ctx.parameter_list().parameter()] if ctx.parameter_list().parameter() else []
-            body = [self.visit(content, input_lines) for content in ctx.content()] if ctx.content() else []
+            params = []
+            if ctx.parameter_list() and ctx.parameter_list().parameter():
+                param_nodes = ctx.parameter_list().parameter()
+                if isinstance(param_nodes, list):
+                    params = [param.getText() for param in param_nodes if hasattr(param, 'getText')]
+                else:
+                    params = [param_nodes.getText()] if hasattr(param_nodes, 'getText') else []
+            body = []
+            if ctx.content():
+                content_nodes = ctx.content()
+                if isinstance(content_nodes, list):
+                    body = [self.visit(content, input_lines) for content in content_nodes]
+                else:
+                    body = [self.visit(content_nodes, input_lines)]
             line = ctx.start.line
             return ArrowFunctionExpression(params, body, line)
         elif isinstance(ctx, codeDebugParser.ConsoleCommandContext):
@@ -307,9 +590,32 @@ class ASTBuilder:
             line = ctx.start.line
             return StringExpression(value, line)
         elif isinstance(ctx, codeDebugParser.InitialValueContext):
-            values = [self.visit(value, input_lines) for value in ctx.valueForInitialization()] if ctx.valueForInitialization() else []
+            if ctx.valueForInitialization():
+                value = self.visit(ctx.valueForInitialization()[0], input_lines)  # Take first value for useState
+                line = ctx.start.line
+                return value
+            return None
+        elif isinstance(ctx, codeDebugParser.ValueForInitializationContext):
             line = ctx.start.line
-            return ArrayExpression(values, line) if values else None
+            if ctx.NUMBER():
+                return NumberExpression(ctx.NUMBER()[0].getText(), line)
+            elif ctx.STRING():
+                return StringExpression(ctx.STRING()[0].getText(), line)
+            elif ctx.BOOLEAN():
+                value = ctx.BOOLEAN()[0].getText().lower() == "true"
+                return BooleanExpression(value, line)
+            elif ctx.IDENTIFIER():
+                return ValueIndicatorExpression(ctx.IDENTIFIER()[0].getText(), line)
+            elif ctx.array():
+                return self.visit(ctx.array(), input_lines)
+            elif ctx.NULL():
+                return StringExpression(ctx.NULL()[0].getText(), line)
+            elif ctx.SYMBOL_FUNC():
+                return StringExpression(ctx.SYMBOL_FUNC()[0].getText(), line)
+            elif ctx.NEW():
+                return DateExpression(line)
+            else:
+                raise ValueError(f"Unhandled valueForInitialization child: {ctx.getText()}")
         elif isinstance(ctx, codeDebugParser.ValueIndicatorContext):
             name = ctx.IDENTIFIER().getText()
             line = ctx.IDENTIFIER().symbol.line
@@ -357,7 +663,7 @@ class ASTBuilder:
             raise ValueError(f"Unhandled node type: {type(ctx).__name__}")
 
 def collect_function_names(ast: Expression) -> Set[str]:
-    """Thu thập tất cả tên function trong AST."""
+    """Collect all function names in the AST."""
     function_names = set()
     if isinstance(ast, ProgramExpression):
         for func in ast.functions:
@@ -366,13 +672,13 @@ def collect_function_names(ast: Expression) -> Set[str]:
     return function_names
 
 def check_element_tags(expr: Expression, function_names: Set[str], errors: List[str]):
-    """Kiểm tra các ElementExpression trong AST, báo lỗi nếu tag không viết hoa mà khớp với tên function."""
+    """Check ElementExpression in AST for lowercase component names."""
     if isinstance(expr, ReturnStatementExpression):
         check_element_tags(expr.element, function_names, errors)
     elif isinstance(expr, ElementExpression):
         tag = expr.open_tag
-        if tag and not tag[0].isupper():  # Nếu tag không viết hoa chữ cái đầu
-            if tag in function_names:  # Nếu tag khớp với một tên function
+        if tag and not tag[0].isupper():
+            if tag in function_names:
                 capitalized_tag = tag[0].upper() + tag[1:] if len(tag) > 1 else tag.upper()
                 errors.append(
                     f"Invalid React component name at line {expr.line}: '{tag}' is used as a component but does not start with an uppercase letter.\n"
