@@ -56,6 +56,7 @@ class Context:
         self.loop_counters[loop_id] += 1
         if self.loop_counters[loop_id] > max_iterations:
             self.errors.append(f"Error at line {line}: Potential infinite loop detected at loop ID '{loop_id}'.")
+
     def track_function_call(self, func_name: str, line: int, max_calls: int = 1000):
         call_id = f"{func_name}_{line}"
         if call_id not in self.loop_counters:
@@ -63,3 +64,10 @@ class Context:
         self.loop_counters[call_id] += 1
         if self.loop_counters[call_id] > max_calls:
             self.errors.append(f"Warning at line {line}: Function '{func_name}' called too many times ({self.loop_counters[call_id]} calls). Potential performance issue.")
+
+    def declare_function(self, name: str, line: int) -> Optional[str]:
+        """Khai báo một function trong context."""
+        if name in self.function_names:
+            return f"Error at line {line}: Function '{name}' is already declared."
+        self.function_names.add(name)
+        return None

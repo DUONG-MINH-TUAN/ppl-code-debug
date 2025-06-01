@@ -18,13 +18,3 @@ class ProgramExpression(Expression):
             self.import_stmt.interpret(context)
         for func in self.functions:
             func.interpret(context)
-
-
-
-
-
-
-
-
-
-
