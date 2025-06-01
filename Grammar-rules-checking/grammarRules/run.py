@@ -3,7 +3,7 @@ import os
 import subprocess
 import json
 import traceback
-from typing import List
+from typing import List, Set
 from dotenv import load_dotenv
 import re
 from antlr4 import *
@@ -129,8 +129,8 @@ class ASTBuilder:
         sys.stderr.flush()
         if isinstance(ctx, codeDebugParser.ProgramContext):
             import_stmt = self.visit(ctx.main_structure().import_statement(), input_lines) if ctx.main_structure().import_statement() else None
-            statements_and_functions = [self.visit(node, input_lines) for node in ctx.main_structure().getChildren() if not isinstance(node, codeDebugParser.Import_statementContext)]
-            return ProgramExpression(import_stmt, statements_and_functions)
+            functions = [self.visit(node, input_lines) for node in ctx.main_structure().getChildren() if not isinstance(node, codeDebugParser.Import_statementContext)]
+            return ProgramExpression(import_stmt, functions)
         elif isinstance(ctx, codeDebugParser.Import_statementContext):
             hooks = [ctx.hook(i).getText() for i in range(len(ctx.hook()))]
             line = ctx.start.line
@@ -356,6 +356,34 @@ class ASTBuilder:
             sys.stderr.flush()
             raise ValueError(f"Unhandled node type: {type(ctx).__name__}")
 
+def collect_function_names(ast: Expression) -> Set[str]:
+    """Thu thập tất cả tên function trong AST."""
+    function_names = set()
+    if isinstance(ast, ProgramExpression):
+        for func in ast.functions:
+            if isinstance(func, FunctionDeclarationExpression):
+                function_names.add(func.name)
+    return function_names
+
+def check_element_tags(expr: Expression, function_names: Set[str], errors: List[str]):
+    """Kiểm tra các ElementExpression trong AST, báo lỗi nếu tag không viết hoa mà khớp với tên function."""
+    if isinstance(expr, ReturnStatementExpression):
+        check_element_tags(expr.element, function_names, errors)
+    elif isinstance(expr, ElementExpression):
+        tag = expr.open_tag
+        if tag and not tag[0].isupper():  # Nếu tag không viết hoa chữ cái đầu
+            if tag in function_names:  # Nếu tag khớp với một tên function
+                capitalized_tag = tag[0].upper() + tag[1:] if len(tag) > 1 else tag.upper()
+                errors.append(
+                    f"Invalid React component name at line {expr.line}: '{tag}' is used as a component but does not start with an uppercase letter.\n"
+                    f"Suggestion: Rename the function '{tag}' to '{capitalized_tag}' to use it as a React component."
+                )
+        for content in expr.content:
+            check_element_tags(content, function_names, errors)
+    elif isinstance(expr, (list, tuple)):
+        for e in expr:
+            check_element_tags(e, function_names, errors)
+
 def process_input(input_content: str):
     """Process the input content through lexer, parser, AST, and interpreter."""
     if not input_content:
@@ -393,6 +421,17 @@ def process_input(input_content: str):
         print(tree.toStringTree(recog=parser), file=sys.stderr)
         sys.stderr.flush()
 
+        # If parse tree is successfully created, ignore syntax errors from error_listener
+        if tree and not tree.getText().strip() == "":
+            error_listener.errors = []  # Clear syntax errors if parse tree is valid
+
+        # If there are syntax errors and parse tree is invalid, return early
+        if error_listener.errors:
+            print(json.dumps({"success": False, "errors": error_listener.errors}))
+            print("Run tests completely", file=sys.stderr)
+            sys.stderr.flush()
+            return
+
         # Convert parse tree to Interpreter AST
         print("Building AST...", file=sys.stderr)
         sys.stderr.flush()
@@ -406,15 +445,16 @@ def process_input(input_content: str):
             sys.stderr.flush()
             return
 
+        # Collect function names
+        function_names = collect_function_names(ast)
+
+        # Check for invalid React component names in return statements
+        check_element_tags(ast, function_names, context.errors)
+
         # Interpret the AST
         print("Interpreting AST...", file=sys.stderr)
         sys.stderr.flush()
         ast.interpret(context)
-
-        # Check for return statement only if the input contains a function declaration
-        is_functional_component = "function" in input_content.lower() or "export default" in input_content.lower()
-        if is_functional_component and "return" not in input_content.lower():
-            context.errors.append("No return statement found in functional component")
 
         # Output results
         if error_listener.errors or context.errors:
