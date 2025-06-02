@@ -35,6 +35,7 @@ content: stateSetter stat_breakDown
        | return_statement stat_breakDown
        | variableDeclaration stat_breakDown
        | forStatement stat_breakDown
+       | hookCall
        | ifStatement stat_breakDown;
 
 // Types of variable
@@ -56,6 +57,7 @@ statement: variableDeclaration stat_breakDown
          | stringDeclaration stat_breakDown
          | arrowFunction stat_breakDown
          | arrayDeclaration stat_breakDown
+         | hookCall SEMICOLON
          | dateDeclaration stat_breakDown;
 
 // Values for types 
@@ -79,7 +81,7 @@ closeTag: JSX_CLOSE_TAG IDENTIFIER RIGHT_ANGLE_BRACKET;
 selfClosingTag: JSX_OPEN_TAG DIV RIGHT_ANGLE_BRACKET;
 
 // Content of the element
-elementContent: element | valueIndicator | TAG_TEXT;
+elementContent: element | valueIndicator | TAG_TEXT | JSX_ATTR;
 valueIndicator: LEFT_BRACE IDENTIFIER RIGHT_BRACE;  
 
 // Primitive data
@@ -98,7 +100,7 @@ dateDeclaration: variableTypes IDENTIFIER EQUAL NEW DATE_FUNC;
 stateSetter: variableTypes statePair EQUAL USE_STATE initialValue;
 statePair: LEFT_SQUARE_BRACKET IDENTIFIER COMMA IDENTIFIER RIGHT_SQUARE_BRACKET;
 initialValue: LEFT_PARENTHESIS valueForInitialization* RIGHT_PARENTHESIS;
-valueForInitialization: IDENTIFIER | NUMBER+ | array | stringValue;
+valueForInitialization: IDENTIFIER | NUMBER+ | array | stringValue | BOOLEAN;
 
 // useEffect
 useEffectCall: USE_EFFECT LEFT_PARENTHESIS callbackFunction COMMA dependencyArray RIGHT_PARENTHESIS;
@@ -141,6 +143,8 @@ blockContent: stateSetter stat_breakDown
             | useCallbackCall stat_breakDown
             | dateDeclaration stat_breakDown   
             | variableDeclaration stat_breakDown;
+
+hookCall: IDENTIFIER LEFT_PARENTHESIS parameter_list? RIGHT_PARENTHESIS;
 
 // Expression for conditions
 expression: valueIndicator                     # varExpr

@@ -64,6 +64,7 @@ JSX_FRAGMENT_CLOSE: LEFT_ANGLE_BRACKET DIV RIGHT_ANGLE_BRACKET -> pushMode(TAG_M
 IDENTIFIER: [a-zA-Z][a-zA-Z0-9]*;
 
 NUMBER: [0-9][0-9]*;
+BOOLEAN: 'true' | 'false';
 
 WS: [ \t\r\n]+ -> skip;
 
@@ -80,6 +81,7 @@ TAG_IDENTIFIER: [a-zA-Z][a-zA-Z0-9]* -> type(IDENTIFIER);
 TAG_RIGHT_ANGLE_BRACKET: '>' -> type(RIGHT_ANGLE_BRACKET), popMode;
 TAG_LEFT_ANGLE_BRACKET: '<' -> type(LEFT_ANGLE_BRACKET);
 TAG_WS: [ \t\r\n]+ -> skip;
+JSX_ATTR: 'ref=' '{' IDENTIFIER '}';
 
 mode DATE_MODE;
 SPACE: [ \t\r\n]+;  
