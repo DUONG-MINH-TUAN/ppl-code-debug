@@ -1015,15 +1015,19 @@ def collect_used_jsx_tags(expr: Expression, used_tags: Set[str], errors: List[di
     elif isinstance(expr, ReturnStatementExpression) and expr.element:
         collect_used_jsx_tags(expr.element, used_tags, errors)
     elif isinstance(expr, ElementExpression):
-        print(f"Found ElementExpression with open_tag: {expr.open_tag}", file=sys.stderr)
+        print(f"Found ElementExpression with open_tag: {expr.open_tag}, close_tag: {expr.close_tag} at line {expr.line}", file=sys.stderr)
         if expr.open_tag:
             used_tags.add(expr.open_tag)
-            print(f"Added tag to used_tags: {expr.open_tag}, used_tags now: {used_tags}", file=sys.stderr)
+            print(f"Added open_tag to used_tags: {expr.open_tag}, used_tags now: {used_tags}", file=sys.stderr)
+        if expr.close_tag and expr.close_tag != expr.open_tag:
+            used_tags.add(expr.close_tag)
+            print(f"Added close_tag to used_tags: {expr.close_tag}, used_tags now: {used_tags}", file=sys.stderr)
+            errors.append({
+                "error": f"Mismatched JSX tags at line {expr.line}: Opening tag '<{expr.open_tag}>' does not match closing tag '</{expr.close_tag}>'.",
+                "suggestion": f"Ensure the closing tag matches the opening tag '<{expr.open_tag}>'.",
+            })
         for content in expr.content:
             collect_used_jsx_tags(content, used_tags, errors)
-    elif isinstance(expr, (list, tuple)):
-        for e in expr:
-            collect_used_jsx_tags(e, used_tags, errors)
     # Chỉ in log một lần ở cuối
     if isinstance(expr, ProgramExpression):
         print(f"Collected JSX tags: {used_tags}", file=sys.stderr)
