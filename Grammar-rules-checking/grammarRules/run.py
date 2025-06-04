@@ -559,7 +559,7 @@ class ASTBuilder:
                 return self.visit(ctx.arrayDeclaration(), input_lines)
             elif ctx.dateDeclaration():
                 return self.visit(ctx.dateDeclaration(), input_lines)
-            elif ctx.hookCall():  # Handle hookCall
+            elif ctx.hookCall():
                 return self.visit(ctx.hookCall(), input_lines)
             else:
                 print(f"Warning: Unhandled statement at line {ctx.start.line}: '{ctx.getText()}'", file=sys.stderr)
@@ -862,14 +862,14 @@ class ASTBuilder:
             methods = [self.visit(method, input_lines) for method in ctx.methodDeclaration()] if ctx.methodDeclaration() else []
             return ClassComponentExpression(name, methods, line)        
         elif isinstance(ctx, codeDebugParser.HookCallContext):
-                hook_name = ctx.IDENTIFIER().getText()
-                args = []
-                if ctx.parameter_list() and ctx.parameter_list().parameter():
-                    param_nodes = ctx.parameter_list().parameter()
-                    if isinstance(param_nodes, list):
-                        args = [param.getText() for param in param_nodes if hasattr(param, 'getText')]
-                    else:
-                        args = [param_nodes.getText()] if hasattr(param_nodes, 'getText') else []
+            hook_name = ctx.IDENTIFIER().getText()
+            args = []
+            if ctx.parameter_list() and ctx.parameter_list().parameter():
+                param_nodes = ctx.parameter_list().parameter()
+                if isinstance(param_nodes, list):
+                    args = [param.getText() for param in param_nodes if hasattr(param, 'getText')]
+                else:
+                    args = [param_nodes.getText()] if hasattr(param_nodes, 'getText') else []
                 return HookCallExpression(hook_name, args, ctx.start.line)
         elif isinstance(ctx, codeDebugParser.MethodDeclarationContext):
             name = ctx.IDENTIFIER().getText()
@@ -890,9 +890,10 @@ class ASTBuilder:
                     body = [self.visit(content_nodes, input_lines)]
             return FunctionDeclarationExpression(name, line, params, body)
         else:
-                print(f"Unhandled node type: {type(ctx).__name__}", file=sys.stderr)
-                sys.stderr.flush()
-                raise ValueError(f"Unhandled node type: {type(ctx).__name__}")
+            print(f"Unhandled node type: {type(ctx).__name__}", file=sys.stderr)
+            sys.stderr.flush()
+            raise ValueError(f"Unhandled node type: {type(ctx).__name__}")
+
 def print_parse_tree(ctx, parser, level=0):
     indent = "  " * level
     if isinstance(ctx, TerminalNode):
@@ -905,7 +906,7 @@ def print_parse_tree(ctx, parser, level=0):
         for child in ctx.children:
             print_parse_tree(child, parser, level + 1)
 
-def collect_function_names(ast: Expression, context: Context) -> list:
+def collect_function_names(ast: Expression, context: Context) -> Set[str]:
     function_names = set()
     if isinstance(ast, ProgramExpression):
         print(f"Total functions in ProgramExpression: {len(ast.functions)}", file=sys.stderr)
@@ -921,10 +922,10 @@ def collect_function_names(ast: Expression, context: Context) -> list:
                     print(f"Found ArrowFunctionExpression for {func.name}", file=sys.stderr)
                     function_names.add(func.name)
                     context.declare_function(func.name, func.line)
-            
     print(f"Collected function names: {function_names}", file=sys.stderr)
     sys.stderr.flush()
     return function_names
+
 def collect_used_jsx_tags(expr: Expression, used_tags: Set[str], errors: List[dict]):
     if isinstance(expr, ProgramExpression):
         for func in expr.functions:
@@ -971,6 +972,7 @@ def collect_used_jsx_tags(expr: Expression, used_tags: Set[str], errors: List[di
                 "suggestion": "Ensure the program contains valid JSX elements or components."
             })
         sys.stderr.flush()
+
 def check_function_return_jsx(expr: Expression, func_name: str) -> tuple[bool, int, str]:
     if isinstance(expr, FunctionDeclarationExpression):
         body = expr.body
@@ -1126,6 +1128,7 @@ def process_input(input_content: str):
 
         function_names = collect_function_names(ast, context)
         check_element_tags(ast, function_names, context.errors)
+        check_missing_semicolons(ast, context.errors)
 
         if context.errors:
             print(json.dumps({"success": False, "errors": context.errors}, indent=2))

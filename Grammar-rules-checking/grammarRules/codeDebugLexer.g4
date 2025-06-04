@@ -48,7 +48,10 @@ SINGLE_QUOTE: '\'';
 DOUBLE_QUOTE: '"';
 SEMICOLON: ';';
 IMPLIE: '=>';
-DOT: '.';
+DOT: '.';GT: '>';
+LT: '<';
+EQ: '==';
+NEQ: '!=';
 
 // Nhận diện thẻ JSX trong mode mặc định
 JSX_OPEN_TAG: LEFT_ANGLE_BRACKET IDENTIFIER -> pushMode(TAG_MODE);
