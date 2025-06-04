@@ -310,7 +310,7 @@ class Context:
             if expr.value:
                 self.collect_identifiers(expr.value, identifiers)
         elif isinstance(expr, ConsoleCommandExpression):
-            if expr.arg:
+            if expr.arg and isinstance(expr.arg, ValueIndicatorExpression):  # Only collect identifiers, not strings
                 self.collect_identifiers(expr.arg, identifiers)
         elif isinstance(expr, ArrowFunctionExpression):
             for content in expr.body:
@@ -324,13 +324,13 @@ class Context:
         elif isinstance(expr, (list, tuple)):
             for item in expr:
                 self.collect_identifiers(item, identifiers)
-
     def check_hook(self, hook_type: str, line: int, scope: str, callback: Expression = None, deps: List[str] = None, initial_value: Expression = None):
         print(f"Checking hook: {hook_type} at line {line}, scope: {scope}", file=sys.stderr)
-        if scope == "global":
+        # Allow hooks in global scope for standalone testing
+        if scope != "global" and (scope[0].islower() and not scope.startswith("use")):
             self.errors.append({
                 "error": f"Invalid {hook_type} call at line {line}: Hooks can only be called inside a React component or custom hook.",
-                "suggestion": f"Move the {hook_type} call inside a component function."
+                "suggestion": f"Move the {hook_type} call inside a component function or a custom hook (function starting with 'use')."
             })
         if hook_type == "useState":
             if initial_value and isinstance(initial_value, ValueIndicatorExpression):
@@ -398,11 +398,8 @@ def generate_antlr2python():
 
 def clean_input(input_string: str) -> str:
     input_string = input_string.strip()
-    if (input_string.startswith('"') and input_string.endswith('"')) or (input_string.startswith("'") and input_string.endswith("'")):
-        input_string = input_string[1:-1]
-    lines = []
+    output = ""
     in_string = False
-    current_line = ""
     string_char = None
     i = 0
     while i < len(input_string):
@@ -414,22 +411,17 @@ def clean_input(input_string: str) -> str:
             elif not in_string:
                 in_string = True
                 string_char = char
-            current_line += char
+            output += char
+        elif char in [';', '{', '}'] and not in_string:
+            output += char + '\n'
         elif char == '\n' and not in_string:
-            if current_line.strip():
-                lines.append(current_line.strip())
-            current_line = ""
+            output += '\n'
         else:
-            current_line += char
+            output += char
         i += 1
-    if current_line.strip():
-        lines.append(current_line.strip())
-    result = []
-    for line in lines:
-        if not (line.startswith('"') and line.endswith('"')) and not (line.startswith("'") and line.endswith("'")):
-            line = line.replace(';', ';\n').replace('{', '{\n').replace('}', '\n}')
-        result.append(line)
-    return '\n'.join(line for line in result if line.strip())
+    # Split into lines and remove empty lines, preserving quotes
+    lines = [line.rstrip() for line in output.split('\n') if line.strip()]
+    return '\n'.join(lines)
 
 class CustomErrorListener(ErrorListener):
     def __init__(self, input_content):
@@ -486,6 +478,7 @@ class ASTBuilder:
     def visit(self, ctx, input_lines: List[str]) -> Expression:
         print(f"Visiting {type(ctx).__name__}", file=sys.stderr)
         sys.stderr.flush()
+        
         if isinstance(ctx, codeDebugParser.ProgramContext):
             print(f"ProgramContext children: {[child.getText() for child in ctx.main_structure().getChildren()]}", file=sys.stderr)
             import_stmt = self.visit(ctx.main_structure().import_statement(), input_lines) if ctx.main_structure().import_statement() else None
@@ -732,8 +725,15 @@ class ASTBuilder:
             if ctx.stringValue():
                 arg = self.visit(ctx.stringValue(), input_lines)
             elif ctx.IDENTIFIER():
-                arg = ValueIndicatorExpression(ctx.IDENTIFIER().getText(), ctx.IDENTIFIER().symbol.line)
+                # Check if the IDENTIFIER is a quoted string in the original input
+                original_line = input_lines[ctx.start.line - 1] if ctx.start.line <= len(input_lines) else ""
+                ident_text = ctx.IDENTIFIER().getText()
+                if f'"{ident_text}"' in original_line or f"'{ident_text}'" in original_line:
+                    arg = StringExpression(f'"{ident_text}"', ctx.IDENTIFIER().symbol.line)
+                else:
+                    arg = ValueIndicatorExpression(ident_text, ctx.IDENTIFIER().symbol.line)
             line = ctx.start.line
+            print(f"ConsoleCommand arg: {arg.__class__.__name__ if arg else 'None'}", file=sys.stderr)
             return ConsoleCommandExpression(arg, line)
         elif isinstance(ctx, codeDebugParser.ArrayContext):
             values = [self.visit(value, input_lines) for value in ctx.arrayValue()] if ctx.arrayValue() else []
@@ -939,6 +939,13 @@ def collect_used_jsx_tags(expr: Expression, used_tags: Set[str], errors: List[di
                 collect_used_jsx_tags(stmt, used_tags, errors)
     elif isinstance(expr, FunctionalComponentExpression):
         collect_used_jsx_tags(expr.body, used_tags, errors)
+        # Check if FunctionalComponentExpression returns JSX
+        is_jsx_component, _, _ = check_function_return_jsx(expr, expr.name)
+        if not is_jsx_component:
+            errors.append({
+                "error": f"Functional component '{expr.name}' at line {expr.line} does not return JSX.",
+                "suggestion": "Ensure the component returns a JSX element or fragment."
+            })
     elif isinstance(expr, ClassComponentExpression):
         for method in expr.methods:
             collect_used_jsx_tags(method, used_tags, errors)
@@ -966,11 +973,6 @@ def collect_used_jsx_tags(expr: Expression, used_tags: Set[str], errors: List[di
             collect_used_jsx_tags(e, used_tags, errors)
     if isinstance(expr, ProgramExpression):
         print(f"Collected JSX tags: {used_tags}", file=sys.stderr)
-        if not used_tags:
-            errors.append({
-                "error": "No valid JSX tags found in the program.",
-                "suggestion": "Ensure the program contains valid JSX elements or components."
-            })
         sys.stderr.flush()
 
 def check_function_return_jsx(expr: Expression, func_name: str) -> tuple[bool, int, str]:
@@ -997,6 +999,19 @@ def check_function_return_jsx(expr: Expression, func_name: str) -> tuple[bool, i
                 sys.stderr.flush()
                 return True, line, tag
     return False, 0, ""
+
+def check_missing_semicolons(ast: Expression, errors: List[dict]):
+    if isinstance(ast, ProgramExpression):
+        for i in range(len(ast.functions) - 1):
+            current = ast.functions[i]
+            next_stmt = ast.functions[i + 1]
+            if isinstance(current, (VariableDeclarationExpression, FunctionDeclarationExpression, FunctionalComponentExpression)) \
+                and isinstance(next_stmt, (VariableDeclarationExpression, FunctionDeclarationExpression, FunctionalComponentExpression)):
+                if current.line == next_stmt.line:
+                    errors.append({
+                        "error": f"Missing semicolon between statements at line {current.line}",
+                        "suggestion": "Add a semicolon to separate the statements."
+                    })
 def check_element_tags(ast: Expression, function_names: Set[str], errors: List[dict]):
     """Check ElementExpressions in the AST for React component naming and self-referential JSX issues."""
     used_jsx_tags = set()
@@ -1009,14 +1024,14 @@ def check_element_tags(ast: Expression, function_names: Set[str], errors: List[d
             return
         is_jsx_component, return_line, return_tag = check_function_return_jsx(func, func_name)
         is_used_as_jsx = func_name in used_jsx_tags or func_name.lower() in [tag.lower() for tag in used_jsx_tags]
-        if is_used_as_jsx:
+        if is_jsx_component or is_used_as_jsx:
             if not func_name[0].isupper():
                 capitalized_name = func_name[0].upper() + func_name[1:] if len(func_name) > 1 else func_name.upper()
                 errors.append({
                     "error": f"Invalid React component name at line {line}: '{func_name}' is used as a component but does not start with an uppercase letter.",
                     "suggestion": f"Rename the function '{func_name}' to '{capitalized_name}' to use it as a React component."
                 })
-            if return_tag.lower() == func_name.lower():
+            if is_jsx_component and return_tag.lower() == func_name.lower():
                 errors.append({
                     "error": f"Invalid JSX tag in return statement at line {return_line}: Function '{func_name}' returns a JSX element '<{return_tag}/>' that matches its own name.",
                     "suggestion": "Avoid using a JSX tag with the same name as the function to prevent recursive or invalid references."
@@ -1145,11 +1160,6 @@ def process_input(input_content: str):
                 "error": "useRef hook detected, which is not supported by the current grammar.",
                 "suggestion": "Remove useRef or extend the grammar to support it."
             })
-        if '=>' in input_content and re.search(r'\bconst\s+\w+\s*=\s*\([^)]*\)\s*=>\s*{', input_content):
-            context.errors.append({
-                "error": "Arrow function declarations detected, which are not fully supported by the current grammar.",
-                "suggestion": "Use traditional function declarations or extend the grammar to support arrow functions."
-            })
 
         if error_listener.errors or context.errors:
             print(json.dumps({"success": False, "errors": error_listener.errors + context.errors}, indent=2))
@@ -1174,6 +1184,7 @@ def run_test():
         return
     input_content = sys.argv[2]
     cleaned_input = clean_input(input_content)
+    print(f"Cleaned input: {repr(cleaned_input)}", file=sys.stderr)
     process_input(cleaned_input)
 
 def main(argv):
