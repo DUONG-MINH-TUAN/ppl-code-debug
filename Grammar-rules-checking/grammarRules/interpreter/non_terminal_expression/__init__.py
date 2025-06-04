@@ -12,3 +12,5 @@ from .console_command import ConsoleCommandExpression
 from .arrow_function import ArrowFunctionExpression
 from .forStatement import ForExpression
 from .ifStatement import IfExpression
+from .functional_expression import FunctionalComponentExpression
+from .class_component import ClassComponentExpression

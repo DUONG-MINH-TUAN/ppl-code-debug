@@ -71,3 +71,16 @@ class Context:
             return f"Error at line {line}: Function '{name}' is already declared."
         self.function_names.add(name)
         return None
+
+    def push_tag(self, tag: str, line: int) -> None:
+        """Thêm một tag vào stack."""
+        self.tag_stack.append((tag, line))
+
+    def pop_tag(self, close_tag: str, line: int) -> Optional[str]:
+        """Loại bỏ tag khỏi stack và kiểm tra khớp."""
+        if not self.tag_stack:
+            return f"Error at line {line}: Unmatched closing tag '{close_tag}' - no opening tag found."
+        open_tag, open_line = self.tag_stack.pop()
+        if open_tag != close_tag:
+            return f"Error at line {line}: Mismatched tags - expected closing tag '{open_tag}' (opened at line {open_line}), found '{close_tag}'."
+        return None

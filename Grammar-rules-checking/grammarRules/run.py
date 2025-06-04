@@ -1,3 +1,5 @@
+
+
 import sys
 import os
 import subprocess
@@ -10,6 +12,7 @@ from antlr4 import *
 from CompiledFiles.codeDebugLexer import codeDebugLexer
 from CompiledFiles.codeDebugParser import codeDebugParser
 from antlr4.error.ErrorListener import ErrorListener
+from antlr4.tree.Tree import TerminalNode
 
 # Define base Expression class
 class Expression:
@@ -49,6 +52,28 @@ class FunctionDeclarationExpression(Expression):
         for expr in self.body:
             expr.interpret(context)
         context.current_scope = "global"
+
+class FunctionalComponentExpression(Expression):
+    def __init__(self, name: str, params: List[str], body: Expression, line: int):
+        super().__init__(line)
+        self.name = name
+        self.params = params
+        self.body = body  # Element trả về
+
+    def interpret(self, context):
+        context.current_scope = self.name
+        self.body.interpret(context)
+
+class ClassComponentExpression(Expression):
+    def __init__(self, name: str, methods: List[Expression], line: int):
+        super().__init__(line)
+        self.name = name
+        self.methods = methods
+
+    def interpret(self, context):
+        context.current_scope = self.name
+        for method in self.methods:
+            method.interpret(context)
 
 class ElementExpression(Expression):
     def __init__(self, open_tag, close_tag, line, content):
@@ -222,8 +247,14 @@ class Context:
     def __init__(self, input_lines):
         self.errors = []
         self.input_lines = input_lines
-        self.current_scope = "global"  # Track if inside a function
-        self.symbols = {}  # Symbol table: scope -> set of variable names
+        self.current_scope = "global"
+        self.symbols = {}
+        self.functions = set()  # Thêm để lưu tên function
+
+    def declare_function(self, name: str, line: int):
+        """Register a function name in the context."""
+        self.functions.add(name)
+        print(f"Declared function: {name} at line {line}", file=sys.stderr)
 
     def add_symbol(self, name: str, scope: str):
         """Add a variable to the symbol table for a given scope."""
@@ -238,21 +269,18 @@ class Context:
     def check_hook(self, hook_type: str, line: int, scope: str, callback: Expression = None, deps: List[str] = None):
         """Validate hook usage and dependencies."""
         print(f"Checking hook: {hook_type} at line {line}, scope: {scope}", file=sys.stderr)
-        # Check if hook is called inside a component
         if scope == "global":
             self.errors.append(
                 f"Invalid {hook_type} call at line {line}: Hooks can only be called inside a React component or custom hook.\n"
                 f"Suggestion: Move the {hook_type} call inside a component function."
             )
-        # Check callback for undefined variables and missing dependencies
         if callback and deps is not None:
             identifiers = set()
-            # Collect identifiers in callback
             for content in callback.body:
                 if isinstance(content, ConsoleCommandExpression) and isinstance(content.arg, ValueIndicatorExpression):
                     identifiers.add(content.arg.name)
                 elif isinstance(content, StateSetterExpression):
-                    identifiers.add(content.state_pair[0])  # Add state variable
+                    identifiers.add(content.state_pair[0])
             for ident in identifiers:
                 if not self.check_symbol(ident, scope):
                     self.errors.append(
@@ -300,22 +328,53 @@ def generate_antlr2python():
 
 def clean_input(input_string: str) -> str:
     """Clean the input string to remove unwanted characters and normalize format."""
+    # Remove leading and trailing whitespace
     input_string = input_string.strip()
-    if input_string.startswith('"') and input_string.endswith('"'):
+    # Remove outer quotes if present (only if they enclose the entire string)
+    if (input_string.startswith('"') and input_string.endswith('"')) or (input_string.startswith("'") and input_string.endswith("'")):
         input_string = input_string[1:-1]
-    elif input_string.startswith("'") and input_string.endswith("'"):
-        input_string = input_string[1:-1]
-    
-    input_string = re.sub(r'\\(["\'])', r'\1', input_string)
-    input_string = re.sub(r'\s+', ' ', input_string).strip()
-    lines = input_string.replace(';', ';\n').replace('{', '{\n').replace('}', '\n}')
-    return '\n'.join(line.strip() for line in lines.split('\n') if line.strip())
+
+    # Preserve escaped quotes and split into lines, keeping string literals intact
+    lines = []
+    in_string = False
+    current_line = ""
+    string_char = None
+    i = 0
+    while i < len(input_string):
+        char = input_string[i]
+        if char in ['"', "'"] and (i == 0 or input_string[i-1] != '\\'):
+            if in_string and char == string_char:
+                in_string = False
+                string_char = None
+            elif not in_string:
+                in_string = True
+                string_char = char
+            current_line += char
+        elif char == '\n' and not in_string:
+            if current_line.strip():
+                lines.append(current_line.strip())
+            current_line = ""
+        else:
+            current_line += char
+        i += 1
+    if current_line.strip():
+        lines.append(current_line.strip())
+
+    # Normalize with newlines after semicolons and braces, but only for non-string lines
+    result = []
+    for line in lines:
+        if not (line.startswith('"') and line.endswith('"')) and not (line.startswith("'") and line.endswith("'")):
+            line = line.replace(';', ';\n').replace('{', '{\n').replace('}', '\n}')
+        result.append(line)
+
+    return '\n'.join(line for line in result if line.strip())
 
 class CustomErrorListener(ErrorListener):
     """Custom error listener for ANTLR syntax errors."""
     def __init__(self, input_content):
         self.errors = []
         self.input_lines = input_content.splitlines()
+        print(f"Input lines: {self.input_lines}", file=sys.stderr)
 
     def syntaxError(self, recognizer, offendingSymbol, line, column, msg, e):
         token_map = {
@@ -369,9 +428,27 @@ class ASTBuilder:
         print(f"Visiting {type(ctx).__name__}", file=sys.stderr)
         sys.stderr.flush()
         if isinstance(ctx, codeDebugParser.ProgramContext):
+            print(f"ProgramContext children: {[child.getText() for child in ctx.main_structure().getChildren()]}", file=sys.stderr)
             import_stmt = self.visit(ctx.main_structure().import_statement(), input_lines) if ctx.main_structure().import_statement() else None
-            functions = [self.visit(node, input_lines) for node in ctx.main_structure().getChildren() if not isinstance(node, codeDebugParser.Import_statementContext)]
+            functions = []
+            for child in ctx.main_structure().getChildren():
+                if isinstance(child, TerminalNode):
+                    continue
+                visited_node = self.visit(child, input_lines)
+                if visited_node:
+                    functions.append(visited_node)
+                    print(f"Added to functions: {type(visited_node).__name__}, name={getattr(visited_node, 'name', 'N/A')}", file=sys.stderr)
+            print(f"Total functions added: {len(functions)}", file=sys.stderr)
             return ProgramExpression(import_stmt, functions)
+        elif isinstance(ctx, codeDebugParser.Statement_or_functionContext):
+            # Xử lý Statement_or_functionContext bằng cách thăm các child
+            result = None
+            for child in ctx.getChildren():
+                if not isinstance(child, TerminalNode):  # Bỏ qua các token như ;
+                    visited = self.visit(child, input_lines)
+                    if visited:
+                        result = visited  # Lấy kết quả từ child (thường là statement)
+            return result
         elif isinstance(ctx, codeDebugParser.Import_statementContext):
             hooks = [ctx.hook(i).getText() for i in range(len(ctx.hook()))]
             line = ctx.start.line
@@ -396,7 +473,12 @@ class ASTBuilder:
             return FunctionDeclarationExpression(name, line, params, body)
         elif isinstance(ctx, codeDebugParser.StatementContext):
             if ctx.variableDeclaration():
-                return self.visit(ctx.variableDeclaration(), input_lines)
+                var_decl = self.visit(ctx.variableDeclaration(), input_lines)
+                print(f"VariableDeclaration: name={var_decl.name}, value_type={type(var_decl.value).__name__ if var_decl.value else None}", file=sys.stderr)
+                if isinstance(var_decl.value, ArrowFunctionExpression):
+                    print(f"Confirmed ArrowFunctionExpression for {var_decl.name}", file=sys.stderr)
+                    return VariableDeclarationExpression(var_decl.name, var_decl.line, var_decl.value)
+                return var_decl
             elif ctx.consoleCommand():
                 return self.visit(ctx.consoleCommand(), input_lines)
             elif ctx.ifStatement():
@@ -415,14 +497,14 @@ class ASTBuilder:
                 return self.visit(ctx.numberDeclaration(), input_lines)
             elif ctx.stringDeclaration():
                 return self.visit(ctx.stringDeclaration(), input_lines)
-            elif ctx.arrowFunction():
-                return self.visit(ctx.arrowFunction(), input_lines)
             elif ctx.arrayDeclaration():
                 return self.visit(ctx.arrayDeclaration(), input_lines)
             elif ctx.dateDeclaration():
                 return self.visit(ctx.dateDeclaration(), input_lines)
             else:
-                raise ValueError(f"Unhandled statement child: {ctx.getText()}")
+                # Nếu không khớp với bất kỳ rule nào, in cảnh báo và bỏ qua
+                print(f"Warning: Unhandled statement at line {ctx.start.line}: '{ctx.getText()}'", file=sys.stderr)
+                return None  # Trả về None thay vì raise lỗi
         elif isinstance(ctx, codeDebugParser.ContentContext):
             if ctx.stateSetter():
                 return self.visit(ctx.stateSetter(), input_lines)
@@ -453,12 +535,34 @@ class ASTBuilder:
             elif ctx.ifStatement():
                 return self.visit(ctx.ifStatement(), input_lines)
             else:
-                raise ValueError(f"Unhandled content child: {ctx.getText()}")
+                error_msg = f"Unhandled content child at line {ctx.start.line}: '{ctx.getText()}'"
+                print(error_msg, file=sys.stderr)
+                raise ValueError(error_msg)
         elif isinstance(ctx, codeDebugParser.ElementContext):
-            open_tag = ctx.openTag().getText().lstrip('<').rstrip('>') if ctx.openTag() else ""
-            close_tag = ctx.closeTag().IDENTIFIER().getText() if ctx.closeTag() else ""
+            children = list(ctx.getChildren())
+            print(f"ElementContext children: {[child.getText() for child in children]}", file=sys.stderr)
+            
+            open_tag = ""
+            close_tag = ""
+            content = []
             line = ctx.start.line
-            content = [self.visit(content, input_lines) for content in ctx.elementContent()] if ctx.elementContent() else []
+
+            if ctx.openTag():
+                # Lấy text từ JSX_OPEN_TAG hoặc TAG_OPEN_TAG
+                open_tag_token = ctx.openTag().JSX_OPEN_TAG() or ctx.openTag().TAG_OPEN_TAG()
+                open_tag = open_tag_token.getText().lstrip('<').rstrip('>') if open_tag_token else ""
+                close_tag = ctx.closeTag().getText().lstrip('</').rstrip('>') if ctx.closeTag() else ""
+            elif ctx.selfClosingTag():
+                open_tag = ctx.selfClosingTag().getText().lstrip('<').rstrip('/>')
+                close_tag = open_tag
+            elif ctx.fragmentOpen() or ctx.emptyFragment():
+                open_tag = ""
+                close_tag = ""
+
+            for child in ctx.elementContent():
+                content.append(self.visit(child, input_lines))
+            
+            print(f"Created ElementExpression with open_tag: {open_tag}, close_tag: {close_tag}, content: {[type(c).__name__ for c in content]}", file=sys.stderr)
             return ElementExpression(open_tag, close_tag, line, content)
         elif isinstance(ctx, codeDebugParser.SelfClosingTagContext):
             tag = ctx.JSX_OPEN_TAG().getText().lstrip('<').rstrip('>')
@@ -474,7 +578,9 @@ class ASTBuilder:
             elif ctx.TAG_TEXT():
                 return StringExpression(ctx.TAG_TEXT().getText(), ctx.start.line)
             else:
-                raise ValueError(f"Unhandled elementContent child: {ctx.getText()}")
+                error_msg = f"Unsupported element content at line {ctx.start.line}: '{ctx.getText()}'"
+                print(error_msg, file=sys.stderr)
+                raise ValueError(error_msg)
         elif isinstance(ctx, codeDebugParser.VariableDeclarationContext):
             name = ctx.IDENTIFIER().getText()
             line = ctx.IDENTIFIER().symbol.line
@@ -495,7 +601,24 @@ class ASTBuilder:
                 value = self.visit(ctx.array(), input_lines)
             elif ctx.NEW():
                 value = DateExpression(line)
+            elif ctx.arrowFunction():
+                value = self.visit(ctx.arrowFunction(), input_lines)
             return VariableDeclarationExpression(name, line, value)
+        elif isinstance(ctx, codeDebugParser.ArrowFunctionContext):
+            params = [param.getText() for param in ctx.parameter_list().parameter()] if ctx.parameter_list().parameter() else []
+            body = []
+            # Kiểm tra nếu arrow function có body dạng { content* }
+            if ctx.content():
+                content_nodes = ctx.content()
+                if isinstance(content_nodes, list):
+                    body = [self.visit(content, input_lines) for content in content_nodes]
+                else:
+                    body = [self.visit(content_nodes, input_lines)]
+            # Kiểm tra nếu arrow function trả về element trực tiếp
+            elif ctx.element():
+                body = [self.visit(ctx.element(), input_lines)]
+            line = ctx.start.line
+            return ArrowFunctionExpression(params, body, line)
         elif isinstance(ctx, codeDebugParser.BigIntDeclarationContext):
             name = ctx.IDENTIFIER().getText()
             line = ctx.IDENTIFIER().symbol.line
@@ -548,23 +671,6 @@ class ASTBuilder:
                     body = [self.visit(content_nodes, input_lines)]
             line = ctx.start.line
             return ArrowFunctionExpression([], body, line)
-        elif isinstance(ctx, codeDebugParser.ArrowFunctionContext):
-            params = []
-            if ctx.parameter_list() and ctx.parameter_list().parameter():
-                param_nodes = ctx.parameter_list().parameter()
-                if isinstance(param_nodes, list):
-                    params = [param.getText() for param in param_nodes if hasattr(param, 'getText')]
-                else:
-                    params = [param_nodes.getText()] if hasattr(param_nodes, 'getText') else []
-            body = []
-            if ctx.content():
-                content_nodes = ctx.content()
-                if isinstance(content_nodes, list):
-                    body = [self.visit(content, input_lines) for content in content_nodes]
-                else:
-                    body = [self.visit(content_nodes, input_lines)]
-            line = ctx.start.line
-            return ArrowFunctionExpression(params, body, line)
         elif isinstance(ctx, codeDebugParser.ConsoleCommandContext):
             arg = None
             if ctx.stringValue():
@@ -575,6 +681,32 @@ class ASTBuilder:
             return ConsoleCommandExpression(arg, line)
         elif isinstance(ctx, codeDebugParser.ArrayContext):
             values = [self.visit(value, input_lines) for value in ctx.arrayValue()] if ctx.arrayValue() else []
+            line = ctx.start.line
+            return ArrayExpression(values, line)
+        elif isinstance(ctx, codeDebugParser.ArrayValueContext):
+            line = ctx.start.line
+            if ctx.numberArray():
+                # Xử lý mảng số
+                values = [NumberExpression(num.getText(), line) for num in ctx.numberArray().NUMBER()]
+                return ArrayExpression(values, line)
+            elif ctx.stringArray():
+                # Xử lý mảng chuỗi
+                values = [self.visit(value, input_lines) for value in ctx.stringArray().stringValue()]
+                return ArrayExpression(values, line)
+            elif ctx.arrayArray():
+                # Xử lý mảng lồng nhau
+                values = [self.visit(value, input_lines) for value in ctx.arrayArray().array()]
+                return ArrayExpression(values, line)
+            else:
+                error_msg = f"Unhandled array value type at line {line}: '{ctx.getText()}'"
+                print(error_msg, file=sys.stderr)
+                raise ValueError(error_msg)
+        elif isinstance(ctx, codeDebugParser.StringArrayContext):
+            values = [self.visit(value, input_lines) for value in ctx.stringValue()]
+            line = ctx.start.line
+            return ArrayExpression(values, line)
+        elif isinstance(ctx, codeDebugParser.NumberArrayContext):
+            values = [NumberExpression(num.getText(), ctx.start.line) for num in ctx.NUMBER()]
             line = ctx.start.line
             return ArrayExpression(values, line)
         elif isinstance(ctx, codeDebugParser.StringArrayContext):
@@ -615,13 +747,15 @@ class ASTBuilder:
             elif ctx.NEW():
                 return DateExpression(line)
             else:
-                raise ValueError(f"Unhandled valueForInitialization child: {ctx.getText()}")
+                error_msg = f"Unhandled valueForInitialization child at line {ctx.start.line}: '{ctx.getText()}'"
+                print(error_msg, file=sys.stderr)
+                raise ValueError(error_msg)
         elif isinstance(ctx, codeDebugParser.ValueIndicatorContext):
             name = ctx.IDENTIFIER().getText()
             line = ctx.IDENTIFIER().symbol.line
             return ValueIndicatorExpression(name, line)
         elif isinstance(ctx, codeDebugParser.Return_statementContext):
-            element = self.visit(ctx.element(), input_lines)
+            element = self.visit(ctx.element(), input_lines) if ctx.element() else None
             line = ctx.start.line
             return ReturnStatementExpression(element, line)
         elif isinstance(ctx, codeDebugParser.ForStatementContext):
@@ -657,41 +791,172 @@ class ASTBuilder:
             return BinaryExpression(op, left, right, ctx.start.line)
         elif isinstance(ctx, codeDebugParser.ParenExprContext):
             return self.visit(ctx.expression(), input_lines)
+        elif isinstance(ctx, codeDebugParser.FunctionalComponentContext):
+            name = ctx.IDENTIFIER().getText()
+            line = ctx.IDENTIFIER().symbol.line
+            params = []
+            if ctx.parameter_list() and ctx.parameter_list().parameter():
+                param_nodes = ctx.parameter_list().parameter()
+                if isinstance(param_nodes, list):
+                    params = [param.getText() for param in param_nodes if hasattr(param, 'getText')]
+                else:
+                    params = [param_nodes.getText()] if hasattr(param_nodes, 'getText') else []
+            body = self.visit(ctx.element(), input_lines)  # Lấy element trả về
+            return FunctionalComponentExpression(name, params, body, line)
+        elif isinstance(ctx, codeDebugParser.ClassComponentContext):
+            name = ctx.IDENTIFIER(0).getText()  # Tên class
+            line = ctx.IDENTIFIER(0).symbol.line
+            methods = [self.visit(method, input_lines) for method in ctx.methodDeclaration()] if ctx.methodDeclaration() else []
+            return ClassComponentExpression(name, methods, line)
         else:
-            print(f"Unhandled node type: {type(ctx).__name__}", file=sys.stderr)
-            sys.stderr.flush()
-            raise ValueError(f"Unhandled node type: {type(ctx).__name__}")
+            error_msg = f"Unhandled node type at line {ctx.start.line}: {type(ctx).__name__}"
+            print(error_msg, file=sys.stderr)
+            raise ValueError(error_msg)
+def print_parse_tree(ctx, parser, level=0):
+    """Duyệt và in parse tree chi tiết."""
+    indent = "  " * level
+    # Nếu là terminal node (token)
+    if isinstance(ctx, TerminalNode):
+        token_text = ctx.getText()
+        print(f"{indent}{token_text}", file=sys.stderr)
+        return
+    # Nếu là non-terminal node (quy tắc)
+    rule_name = parser.ruleNames[ctx.getRuleIndex()]
+    print(f"{indent}({rule_name})", file=sys.stderr)
+    # Duyệt các node con
+    if ctx.children:
+        for child in ctx.children:
+            print_parse_tree(child, parser, level + 1)
 
-def collect_function_names(ast: Expression) -> Set[str]:
-    """Collect all function names in the AST."""
+def collect_function_names(ast: Expression, context: Context) -> Set[str]:
     function_names = set()
+    if isinstance(ast, ProgramExpression):
+        print(f"Total functions in ProgramExpression: {len(ast.functions)}", file=sys.stderr)
+        for i, func in enumerate(ast.functions):
+            print(f"Function {i}: {type(func).__name__}", file=sys.stderr)
+            if isinstance(func, (FunctionDeclarationExpression, FunctionalComponentExpression, ClassComponentExpression)):
+                print(f"Adding function name: {func.name}", file=sys.stderr)
+                function_names.add(func.name)
+                context.declare_function(func.name, func.line)
+            elif isinstance(func, VariableDeclarationExpression):
+                print(f"VariableDeclarationExpression: name={func.name}, value_type={type(func.value).__name__ if func.value else None}", file=sys.stderr)
+                if isinstance(func.value, ArrowFunctionExpression):
+                    print(f"Found ArrowFunctionExpression for {func.name}", file=sys.stderr)
+                    function_names.add(func.name)
+                    context.declare_function(func.name, func.line)
+    print(f"Collected function names: {function_names}", file=sys.stderr)
+    sys.stderr.flush()
+    return function_names
+def collect_used_jsx_tags(expr: Expression, used_tags: Set[str],errors: List[str]):
+    if isinstance(expr, ProgramExpression):
+        for func in expr.functions:
+            collect_used_jsx_tags(func, used_tags,errors)
+    elif isinstance(expr, FunctionDeclarationExpression):
+        for stmt in expr.body:
+            collect_used_jsx_tags(stmt, used_tags, errors)
+    elif isinstance(expr, VariableDeclarationExpression):
+        if isinstance(expr.value, ArrowFunctionExpression):
+            for stmt in expr.value.body:
+                collect_used_jsx_tags(stmt, used_tags,errors)
+    elif isinstance(expr, ArrowFunctionExpression):
+        for stmt in expr.body:
+            collect_used_jsx_tags(stmt, used_tags,errors)
+    elif isinstance(expr, ReturnStatementExpression) and expr.element:
+        collect_used_jsx_tags(expr.element, used_tags,errors)
+    elif isinstance(expr, ElementExpression):
+        print(f"Found ElementExpression with open_tag: {expr.open_tag}", file=sys.stderr)
+        if expr.open_tag:
+            used_tags.add(expr.open_tag)
+            print(f"Added tag to used_tags: {expr.open_tag}, used_tags now: {used_tags}", file=sys.stderr)
+        for content in expr.content:
+            collect_used_jsx_tags(content, used_tags,errors)
+    elif isinstance(expr, (list, tuple)):
+        for e in expr:
+            collect_used_jsx_tags(e, used_tags,errors)
+    # Chỉ in log một lần ở cuối
+    if isinstance(expr, ProgramExpression):
+        print(f"Collected JSX tags: {used_tags}", file=sys.stderr)
+        if ( not used_tags):
+            errors.append("No valid JSX tags found in the program")
+        sys.stderr.flush()
+
+def check_function_return_jsx(expr: Expression, func_name: str) -> tuple[bool, int, str]:
+    """Check if a function contains a return statement with a JSX element, and if it matches the function name."""
+    if isinstance(expr, FunctionDeclarationExpression):
+        body = expr.body
+    elif isinstance(expr, ArrowFunctionExpression):
+        body = expr.body
+    else:
+        body = expr
+    if isinstance(body, (list, tuple)):
+        for stmt in body:
+            if isinstance(stmt, ReturnStatementExpression) and isinstance(stmt.element, ElementExpression):
+                tag = stmt.element.open_tag
+                line = stmt.element.line
+                print(f"Function {func_name} returns JSX tag '{tag}' at line {line}", file=sys.stderr)
+                sys.stderr.flush()
+                return True, line, tag
+    return False, 0, ""
+
+def check_element_tags(ast: Expression, function_names: Set[str], errors: List[str]):
+    """Check ElementExpressions in the AST for React component naming and self-referential JSX issues."""
+    used_jsx_tags = set()
+    collect_used_jsx_tags(ast, used_jsx_tags,errors)
+    print(f"Checking element tags with function names: {function_names}, used JSX tags: {used_jsx_tags}", file=sys.stderr)
+    sys.stderr.flush()
+
+    def validate_function(func, func_name: str, line: int):
+        if not func_name:
+            return
+        body = func.body if isinstance(func, (FunctionDeclarationExpression, ArrowFunctionExpression)) else []
+        is_jsx_component, return_line, return_tag = check_function_return_jsx(body, func_name)
+        is_used_as_jsx = func_name in used_jsx_tags or func_name.lower() in [tag.lower() for tag in used_jsx_tags]
+        if is_used_as_jsx:
+            if not func_name[0].isupper():
+                capitalized_name = func_name[0].upper() + func_name[1:] if len(func_name) > 1 else func_name.upper()
+                errors.append(
+                    f"Invalid React component name at line {line}: '{func_name}' is used as a component but does not start with an uppercase letter.\n"
+                    f"Suggestion: Rename the function '{func_name}' to '{capitalized_name}' to use it as a React component."
+                )
+            if return_tag.lower() == func_name.lower():
+                errors.append(
+                    f"Invalid JSX tag in return statement at line {return_line}: Function '{func_name}' returns a JSX element '<{return_tag}/>' that matches its own name.\n"
+                    f"Suggestion: Avoid using a JSX tag with the same name as the function to prevent recursive or invalid references."
+                )
+
     if isinstance(ast, ProgramExpression):
         for func in ast.functions:
             if isinstance(func, FunctionDeclarationExpression):
-                function_names.add(func.name)
-    return function_names
+                validate_function(func, func.name, func.line)
+            elif isinstance(func, VariableDeclarationExpression) and isinstance(func.value, ArrowFunctionExpression):
+                validate_function(func.value, func.name, func.line)
 
-def check_element_tags(expr: Expression, function_names: Set[str], errors: List[str]):
-    """Check ElementExpression in AST for lowercase component names."""
-    if isinstance(expr, ReturnStatementExpression):
-        check_element_tags(expr.element, function_names, errors)
-    elif isinstance(expr, ElementExpression):
-        tag = expr.open_tag
-        if tag and not tag[0].isupper():
-            if tag in function_names:
-                capitalized_tag = tag[0].upper() + tag[1:] if len(tag) > 1 else tag.upper()
-                errors.append(
-                    f"Invalid React component name at line {expr.line}: '{tag}' is used as a component but does not start with an uppercase letter.\n"
-                    f"Suggestion: Rename the function '{tag}' to '{capitalized_tag}' to use it as a React component."
-                )
-        for content in expr.content:
-            check_element_tags(content, function_names, errors)
-    elif isinstance(expr, (list, tuple)):
-        for e in expr:
-            check_element_tags(e, function_names, errors)
+    # Check for undefined components
+    html_tags = {'div', 'span', 'p', 'a', 'button', 'input', 'img', 'h1', 'h2', 'h3', 'ul', 'li', 'table'}
+    for tag in used_jsx_tags:
+        if tag not in function_names and tag.lower() not in html_tags:
+            errors.append(
+                f"Invalid JSX tag at line unknown: '{tag}' is used as a JSX tag but no corresponding component is defined.\n"
+                f"Suggestion: Define a component named '{tag[0].upper() + tag[1:]}' or use an existing HTML element."
+            )
+
+    print(f"Errors after checking element tags: {errors}", file=sys.stderr)
+    sys.stderr.flush()
 
 def process_input(input_content: str):
     """Process the input content through lexer, parser, AST, and interpreter."""
+    # Check if lexer/parser files exist
+    required_files = [
+        os.path.join(CPL_DEST, "codeDebugLexer.py"),
+        os.path.join(CPL_DEST, "codeDebugParser.py")
+    ]
+    for file in required_files:
+        if not os.path.exists(file):
+            print(json.dumps({"success": False, "error": f"Missing {file}. Please run 'python run.py gen' to generate lexer/parser files."}))
+            print("Run tests completely", file=sys.stderr)
+            sys.stderr.flush()
+            return
+
     if not input_content:
         print(json.dumps({"success": False, "error": "No input provided"}))
         print("Run tests completely", file=sys.stderr)
@@ -715,6 +980,8 @@ def process_input(input_content: str):
     lexer = codeDebugLexer(InputStream(input_content))
     token_stream = CommonTokenStream(lexer)
     parser = codeDebugParser(token_stream)
+
+    # Remove default error listener
     parser.removeErrorListeners()
     error_listener = CustomErrorListener(input_content)
     parser.addErrorListener(error_listener)
@@ -722,9 +989,9 @@ def process_input(input_content: str):
     try:
         print("Parsing input...", file=sys.stderr)
         sys.stderr.flush()
-        tree = parser.program()
         print("Parse tree:", file=sys.stderr)
-        print(tree.toStringTree(recog=parser), file=sys.stderr)
+        tree = parser.program()
+        print_parse_tree(tree, parser)
         sys.stderr.flush()
 
         # If parse tree is successfully created, ignore syntax errors from error_listener
@@ -741,21 +1008,31 @@ def process_input(input_content: str):
         # Convert parse tree to Interpreter AST
         print("Building AST...", file=sys.stderr)
         sys.stderr.flush()
+        print(f"input contents: {input_content}", file=sys.stderr)
+        print(f"input content split lines: {input_content.splitlines()}", file=sys.stderr)
         context = Context(input_content.splitlines())
+        print(f"Context: {context}", file=sys.stderr)
         ast_builder = ASTBuilder()
         ast = ast_builder.build(tree, input_content.splitlines())
-       
+
         if ast is None:
             print(json.dumps({"success": False, "errors": ["Failed to build AST"]}))
             print("Run tests completely", file=sys.stderr)
             sys.stderr.flush()
             return
 
-        # Collect function names
-        function_names = collect_function_names(ast)
+        # Collect function names and register them in context
+        function_names = collect_function_names(ast, context)
 
-        # Check for invalid React component names in return statements
+        # Check for React component issues
         check_element_tags(ast, function_names, context.errors)
+
+        # Return early if errors are found
+        if context.errors:
+            print(json.dumps({"success": False, "errors": context.errors}))
+            print("Run tests completely", file=sys.stderr)
+            sys.stderr.flush()
+            return
 
         # Interpret the AST
         print("Interpreting AST...", file=sys.stderr)
@@ -792,15 +1069,8 @@ def run_test():
     input_content = sys.argv[2]
     cleaned_input = clean_input(input_content)
 
-    # Write cleaned input to temporary file and process it
-    try:
-        with open(TEMP_FILE, "w", encoding="utf-8") as f:
-            f.write(cleaned_input)
-        cmd = f"type {TEMP_FILE} | python {sys.argv[0]} test"
-        subprocess.run(cmd, shell=True)
-    finally:
-        if os.path.exists(TEMP_FILE):
-            os.remove(TEMP_FILE)
+    # Process the cleaned input directly
+    process_input(cleaned_input)
 
 def main(argv):
     """Main entry point for the script."""

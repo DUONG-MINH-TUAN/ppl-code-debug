@@ -10,7 +10,7 @@ Grammar-rules-checking/grammarRules/CompiledFiles/**
 # env files (can opt-in for committing if needed)
 .env*
 
-/__pycache__
+/__pycache__/
 *.pyc
 *.interp
 *.tokens
