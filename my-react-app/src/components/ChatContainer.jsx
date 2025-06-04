@@ -7,8 +7,11 @@ import "../styles/ChatContainer.css";
 function ChatContainer({ onFirstMessage }) {
   const [messages, setMessages] = useState([]);
   const messagesEndRef = useRef(null);
+  const [isActive, setIsActive] = useState(false);
 
-  // Auto scroll to bottom whenever messages change
+  useEffect(() => {
+    setIsActive(true); // Kích hoạt khi component mount
+  }, []);
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -16,10 +19,11 @@ function ChatContainer({ onFirstMessage }) {
   // Function to handle sending new messages
   const handleSendMessage = async (message, grammarCallback) => {
     // Add user message to chat
-    setMessages((prevMessages) => [
-      ...prevMessages,
-      { text: message, isUser: true },
-    ]);
+    setMessages((prevMessages) => {
+      const newMessages = [...prevMessages, { text: message, isUser: true }];
+      console.log("Updated messages after user input:", newMessages);
+      return newMessages;
+    });
 
     try {
       const grammarResponse = await axios.post(
@@ -36,31 +40,38 @@ function ChatContainer({ onFirstMessage }) {
         grammarMessage = grammarResponse.data.error;
         isError = true;
       } else if (!grammarResponse.data.result.success) {
-        // Map errors to a formatted string including both error and suggestion
         grammarMessage = grammarResponse.data.result.errors
           .map((err) => `${err.error}\nSuggestion: ${err.suggestion}`)
           .join("\n\n");
         isError = true;
+        console.log("Grammar errors:", grammarMessage);
       } else {
         grammarMessage = grammarResponse.data.result.message;
         isError = false;
       }
 
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        {
-          text: grammarMessage,
-          isUser: false,
-          isError: isError,
-        },
-      ]);
+      setMessages((prevMessages) => {
+        const newMessages = [
+          ...prevMessages,
+          {
+            text: grammarMessage,
+            isUser: false,
+            isError: isError,
+          },
+        ];
+        return newMessages;
+      });
     } catch (grammarError) {
       console.error("Error calling grammar check API:", grammarError.message);
       const errorMessage = "Server error: " + grammarError.message;
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { text: errorMessage, isUser: false, isError: true },
-      ]);
+      setMessages((prevMessages) => {
+        const newMessages = [
+          ...prevMessages,
+          { text: errorMessage, isUser: false, isError: true },
+        ];
+        console.log("Updated messages after error:", newMessages);
+        return newMessages;
+      });
     }
   };
 
@@ -70,16 +81,23 @@ function ChatContainer({ onFirstMessage }) {
   };
 
   return (
-    <div className="chat-container">
+    <div className={`chat-section ${isActive ? "active" : ""}`}>
+      {" "}
       <div className="chat-messages">
-        {messages.map((message, index) => (
-          <ChatMessage
-            key={index}
-            message={message.text}
-            isUser={message.isUser}
-            isError={message.isError}
-          />
-        ))}
+        {messages.length > 0 ? (
+          messages.map((message, index) => {
+            return (
+              <ChatMessage
+                key={index + message.text}
+                message={message.text}
+                isUser={message.isUser}
+                isError={message.isError}
+              />
+            );
+          })
+        ) : (
+          <div className="chat-messages">No messages yet</div>
+        )}
         <div ref={messagesEndRef} />
       </div>
       <div className="chat-input-wrapper">
