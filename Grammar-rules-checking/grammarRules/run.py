@@ -30,8 +30,15 @@ class ProgramExpression(Expression):
     def interpret(self, context):
         print(f"Interpreting ProgramExpression", file=sys.stderr)
         context.current_scope = "global"
+        # NEW: Collect all variable declarations first
+        for func in self.functions:
+            if isinstance(func, VariableDeclarationExpression):
+                # Defer symbol addition to VariableDeclarationExpression.interpret
+                print(f"Pre-noted variable {func.name} for global scope", file=sys.stderr)
+        # Interpret import statement
         if self.import_stmt:
             self.import_stmt.interpret(context)
+        # Interpret all expressions
         for func in self.functions:
             func.interpret(context)
 
@@ -46,7 +53,7 @@ class FunctionDeclarationExpression(Expression):
         print(f"Interpreting FunctionDeclarationExpression: {self.name}", file=sys.stderr)
         context.current_scope = self.name
         for param in self.params:
-            context.add_symbol(param, self.name)
+            context.add_symbol(param, self.name, "parameter", None)
         for expr in self.body:
             expr.interpret(context)
         context.current_scope = "global"
@@ -91,9 +98,30 @@ class VariableDeclarationExpression(Expression):
         self.value = value
 
     def interpret(self, context):
-        context.add_symbol(self.name, context.current_scope)
+        print(f"Interpreting VariableDeclarationExpression: {self.name}", file=sys.stderr)
+        var_type = None
+        value = None
         if self.value:
             self.value.interpret(context)
+            if isinstance(self.value, ArrayExpression):
+                var_type = "array"
+                value = self.value.values
+            elif isinstance(self.value, NumberExpression):
+                var_type = "number"
+                value = self.value.value
+            elif isinstance(self.value, StringExpression):
+                var_type = "string"
+                value = self.value.value
+            elif isinstance(self.value, BooleanExpression):
+                var_type = "boolean"
+                value = self.value.value
+            elif isinstance(self.value, BigIntExpression):
+                var_type = "bigint"
+                value = self.value.value
+            elif isinstance(self.value, DateExpression):
+                var_type = "date"
+                value = None
+        context.add_symbol(self.name, context.current_scope, var_type, value)
 
 class ReturnStatementExpression(Expression):
     def __init__(self, element, line):
@@ -111,8 +139,8 @@ class StateSetterExpression(Expression):
 
     def interpret(self, context):
         print(f"Interpreting StateSetterExpression: {self.state_pair}", file=sys.stderr)
-        context.add_symbol(self.state_pair[0], context.current_scope)  # Add state variable
-        context.add_symbol(self.state_pair[1], context.current_scope)  # Add setter function
+        context.add_symbol(self.state_pair[0], context.current_scope, "state_variable", None)
+        context.add_symbol(self.state_pair[1], context.current_scope, "setter_function", None)
         context.check_hook("useState", self.line, context.current_scope, initial_value=self.initial_value)
         if self.initial_value:
             self.initial_value.interpret(context)
@@ -187,10 +215,26 @@ class ForExpression(Expression):
         self.body = body
 
     def interpret(self, context):
-        context.add_symbol(self.var_name, context.current_scope)
+        print(f"Interpreting ForExpression at line {self.line}", file=sys.stderr)
+        symbol_info = context.check_symbol(self.iterable, context.current_scope)
+        if not symbol_info:
+            context.errors.append({
+                "error": f"For loop at line {self.line} references undefined iterable '{self.iterable}'.",
+                "suggestion": f"Ensure '{self.iterable}' is declared and initialized before the loop (e.g., 'let {self.iterable} = [];')."
+            })
+        elif symbol_info["type"] != "array":
+            context.errors.append({
+                "error": f"For loop at line {self.line} uses non-iterable '{self.iterable}' of type {symbol_info['type']}.",
+                "suggestion": f"Ensure '{self.iterable}' is an array (e.g., 'let {self.iterable} = [1];')."
+            })
+        elif not symbol_info["value"] or len(symbol_info["value"]) == 0:
+            context.errors.append({
+                "error": f"For loop at line {self.line} uses empty array '{self.iterable}'.",
+                "suggestion": f"Ensure '{self.iterable}' contains at least one element (e.g., 'let {self.iterable} = [1];')."
+            })
+        context.add_symbol(self.var_name, context.current_scope, "loop_variable", None)
         for expr in self.body:
             expr.interpret(context)
-
 class IfExpression(Expression):
     def __init__(self, condition, then_block, else_block, line):
         super().__init__(line)
@@ -281,15 +325,18 @@ class Context:
         self.functions.add(name)
         print(f"Declared function: {name} at line {line}", file=sys.stderr)
 
-    def add_symbol(self, name: str, scope: str):
+    def add_symbol(self, name: str, scope: str, var_type=None, value=None):
         if scope not in self.symbols:
-            self.symbols[scope] = set()
-        self.symbols[scope].add(name)
+            self.symbols[scope] = {}
+        self.symbols[scope][name] = {"type": var_type, "value": value}
+        print(f"Added symbol {name} to scope {scope} with type {var_type}, value {value}", file=sys.stderr)
 
-    def check_symbol(self, name: str, scope: str) -> bool:
-        return (name in self.symbols.get(scope, set()) or 
-                name in self.imported_names or 
-                name in self.props)
+    def check_symbol(self, name: str, scope: str) -> dict:
+        if scope in self.symbols and name in self.symbols[scope]:
+            return self.symbols[scope][name]
+        if name in self.imported_names or name in self.props:
+            return {"type": "imported_or_prop", "value": None}
+        return None
 
     def add_import(self, name: str):
         self.imported_names.add(name)
@@ -324,6 +371,7 @@ class Context:
         elif isinstance(expr, (list, tuple)):
             for item in expr:
                 self.collect_identifiers(item, identifiers)
+
     def check_hook(self, hook_type: str, line: int, scope: str, callback: Expression = None, deps: List[str] = None, initial_value: Expression = None):
         print(f"Checking hook: {hook_type} at line {line}, scope: {scope}", file=sys.stderr)
         # Allow hooks in global scope for standalone testing
@@ -348,12 +396,14 @@ class Context:
                         "error": f"{hook_type} at line {line} references undefined variable '{ident}'.",
                         "suggestion": f"Ensure '{ident}' is defined (e.g., via useState or props) before using it in {hook_type}."
                     })
-                elif ident not in deps and ident not in self.props:
+                # MODIFIED: Skip dependency check for variables defined in global scope
+                elif ident not in deps and ident not in self.props and ident not in self.symbols.get("global", set()):
                     self.errors.append({
                         "error": f"{hook_type} at line {line} has missing dependency: '{ident}' is used but not in the dependency array.",
                         "suggestion": f"Add '{ident}' to the dependency array."
                     })
-            if not deps and identifiers:
+            # MODIFIED: Skip empty deps warning if identifiers are all in global scope
+            if not deps and identifiers and not all(ident in self.symbols.get("global", set()) for ident in identifiers):
                 self.errors.append({
                     "error": f"{hook_type} at line {line} uses variables {identifiers} but has an empty dependency array, which may cause stale closures.",
                     "suggestion": f"Include used variables {identifiers} in the dependency array or remove them from the {hook_type} callback."
@@ -504,6 +554,18 @@ class ASTBuilder:
             hooks = [ctx.hook(i).getText() for i in range(len(ctx.hook()))]
             line = ctx.start.line
             return ImportExpression(hooks, line)
+        elif isinstance(ctx, codeDebugParser.BlockContentContext):
+            if ctx.consoleCommand():
+                return self.visit(ctx.consoleCommand(), input_lines)
+            elif ctx.variableDeclaration():
+                return self.visit(ctx.variableDeclaration(), input_lines)
+            elif ctx.stateSetter():
+                return self.visit(ctx.stateSetter(), input_lines)
+            # ... (other cases)
+            else:
+                error_msg = f"Error: Unhandled block content at line {ctx.start.line}: '{ctx.getText()}'"
+                print(error_msg, file=sys.stderr)
+                raise ValueError(error_msg)
         elif isinstance(ctx, codeDebugParser.Function_declarationContext):
             name = ctx.IDENTIFIER().getText()
             line = ctx.IDENTIFIER().symbol.line
@@ -518,9 +580,9 @@ class ASTBuilder:
             if ctx.body_function() and ctx.body_function().content():
                 content_nodes = ctx.body_function().content()
                 if isinstance(content_nodes, list):
-                    body = [self.visit(content, input_lines) for content in content_nodes]
+                    body = [self.visit(content, input_lines) for content in content_nodes if self.visit(content, input_lines) is not None]
                 else:
-                    body = [self.visit(content_nodes, input_lines)]
+                    body = [self.visit(content_nodes, input_lines)] if self.visit(content_nodes, input_lines) is not None else []
             return FunctionDeclarationExpression(name, line, params, body)
         elif isinstance(ctx, codeDebugParser.StatementContext):
             if ctx.variableDeclaration():
@@ -628,6 +690,10 @@ class ASTBuilder:
                 return self.visit(ctx.valueIndicator(), input_lines)
             elif ctx.TAG_TEXT():
                 return StringExpression(ctx.TAG_TEXT().getText(), ctx.start.line)
+            elif ctx.JSX_EXPRESSION():
+                # Extract identifier from {id} by removing braces
+                expr_text = ctx.JSX_EXPRESSION().getText().strip('{}').strip()
+                return ValueIndicatorExpression(expr_text, ctx.start.line)
             else:
                 error_msg = f"Unsupported element content at line {ctx.start.line}: '{ctx.getText()}'"
                 print(error_msg, file=sys.stderr)
@@ -803,7 +869,12 @@ class ASTBuilder:
             if ctx.element():
                 element = self.visit(ctx.element(), input_lines)
             elif ctx.expression():
-                element = self.visit(ctx.expression(), input_lines)
+                expr = self.visit(ctx.expression(), input_lines)
+                # Only treat as element if it's an ElementExpression
+                if isinstance(expr, ElementExpression):
+                    element = expr
+                else:
+                    element = expr  # Keep as BinaryExpression, etc.
             line = ctx.start.line
             return ReturnStatementExpression(element, line)
         elif isinstance(ctx, codeDebugParser.ForStatementContext):
@@ -863,14 +934,18 @@ class ASTBuilder:
             return ClassComponentExpression(name, methods, line)        
         elif isinstance(ctx, codeDebugParser.HookCallContext):
             hook_name = ctx.IDENTIFIER().getText()
-            args = []
-            if ctx.parameter_list() and ctx.parameter_list().parameter():
-                param_nodes = ctx.parameter_list().parameter()
-                if isinstance(param_nodes, list):
-                    args = [param.getText() for param in param_nodes if hasattr(param, 'getText')]
-                else:
-                    args = [param_nodes.getText()] if hasattr(param_nodes, 'getText') else []
+            known_hooks = {"useState", "useEffect", "useCallback", "useMemo", "useRef", "useContext"}
+            if hook_name in known_hooks:
+                args = []
+                if ctx.parameter_list() and ctx.parameter_list().parameter():
+                    param_nodes = ctx.parameter_list().parameter()
+                    if isinstance(param_nodes, list):
+                        args = [param.getText() for param in param_nodes if hasattr(param, 'getText')]
+                    else:
+                        args = [param_nodes.getText()] if hasattr(param_nodes, 'getText') else []
                 return HookCallExpression(hook_name, args, ctx.start.line)
+            else:
+                return ValueIndicatorExpression(hook_name, ctx.start.line)
         elif isinstance(ctx, codeDebugParser.MethodDeclarationContext):
             name = ctx.IDENTIFIER().getText()
             line = ctx.IDENTIFIER().symbol.line
@@ -889,6 +964,26 @@ class ASTBuilder:
                 else:
                     body = [self.visit(content_nodes, input_lines)]
             return FunctionDeclarationExpression(name, line, params, body)
+        elif isinstance(ctx, codeDebugParser.ExpressionContext):
+            if ctx.addSubExpr():
+                return self.visit(ctx.addSubExpr(), input_lines)
+            elif ctx.mulDivExpr():
+                return self.visit(ctx.mulDivExpr(), input_lines)
+            elif ctx.compareExpr():
+                return self.visit(ctx.compareExpr(), input_lines)
+            elif ctx.parenExpr():
+                return self.visit(ctx.parenExpr(), input_lines)
+            elif ctx.varExpr():
+                return self.visit(ctx.varExpr(), input_lines)
+            elif ctx.numExpr():
+                return self.visit(ctx.numExpr(), input_lines)
+            elif ctx.strExpr():
+                return self.visit(ctx.strExpr(), input_lines)
+            elif ctx.boolExpr():
+                return self.visit(ctx.boolExpr(), input_lines)
+            else:
+                print(f"Unhandled expression type at line {ctx.start.line}: '{ctx.getText()}'", file=sys.stderr)
+                return None
         else:
             print(f"Unhandled node type: {type(ctx).__name__}", file=sys.stderr)
             sys.stderr.flush()
@@ -984,7 +1079,7 @@ def check_function_return_jsx(expr: Expression, func_name: str) -> tuple[bool, i
         body = expr.body
     else:
         body = expr
-    if isinstance(body, ElementExpression):
+    if isinstance(body, ElementExpression) and body.open_tag:
         tag = body.open_tag
         line = body.line
         print(f"Function {func_name} returns JSX tag '{tag}' at line {line}", file=sys.stderr)
@@ -992,14 +1087,13 @@ def check_function_return_jsx(expr: Expression, func_name: str) -> tuple[bool, i
         return True, line, tag
     if isinstance(body, (list, tuple)):
         for stmt in body:
-            if isinstance(stmt, ReturnStatementExpression) and isinstance(stmt.element, ElementExpression):
+            if isinstance(stmt, ReturnStatementExpression) and isinstance(stmt.element, ElementExpression) and stmt.element.open_tag:
                 tag = stmt.element.open_tag
                 line = stmt.element.line
                 print(f"Function {func_name} returns JSX tag '{tag}' at line {line}", file=sys.stderr)
                 sys.stderr.flush()
                 return True, line, tag
     return False, 0, ""
-
 def check_missing_semicolons(ast: Expression, errors: List[dict]):
     if isinstance(ast, ProgramExpression):
         for i in range(len(ast.functions) - 1):
@@ -1023,8 +1117,8 @@ def check_element_tags(ast: Expression, function_names: Set[str], errors: List[d
         if not func_name:
             return
         is_jsx_component, return_line, return_tag = check_function_return_jsx(func, func_name)
-        is_used_as_jsx = func_name in used_jsx_tags or func_name.lower() in [tag.lower() for tag in used_jsx_tags]
-        if is_jsx_component or is_used_as_jsx:
+        is_used_as_jsx = func_name in used_jsx_tags
+        if is_used_as_jsx:  # Only check naming for functions used as JSX tags
             if not func_name[0].isupper():
                 capitalized_name = func_name[0].upper() + func_name[1:] if len(func_name) > 1 else func_name.upper()
                 errors.append({
@@ -1036,6 +1130,14 @@ def check_element_tags(ast: Expression, function_names: Set[str], errors: List[d
                     "error": f"Invalid JSX tag in return statement at line {return_line}: Function '{func_name}' returns a JSX element '<{return_tag}/>' that matches its own name.",
                     "suggestion": "Avoid using a JSX tag with the same name as the function to prevent recursive or invalid references."
                 })
+        elif is_jsx_component:  # Check naming for functions that return JSX but aren't used as tags
+            if not func_name[0].isupper():
+                capitalized_name = func_name[0].upper() + func_name[1:] if len(func_name) > 1 else func_name.upper()
+                errors.append({
+                    "error": f"Invalid React component name at line {line}: '{func_name}' returns JSX but does not start with an uppercase letter.",
+                    "suggestion": f"Rename the function '{func_name}' to '{capitalized_name}' to follow React component naming conventions."
+                })
+        
 
     if isinstance(ast, ProgramExpression):
         for func in ast.functions:

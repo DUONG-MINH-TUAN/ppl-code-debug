@@ -75,7 +75,7 @@ closeTag: TAG_CLOSE_TAG;
 selfClosingTag: TAG_SELF_CLOSING_TAG;
 
 // Content of the element
-elementContent: element | valueIndicator | TAG_TEXT | JSX_ATTR;
+elementContent: element | valueIndicator | TAG_TEXT | JSX_ATTR | JSX_EXPRESSION;
 valueIndicator: LEFT_BRACE IDENTIFIER RIGHT_BRACE;  
 
 stringDeclaration: variableTypes IDENTIFIER EQUAL stringValue;
