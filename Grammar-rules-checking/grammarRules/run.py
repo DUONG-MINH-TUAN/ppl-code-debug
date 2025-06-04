@@ -931,7 +931,7 @@ def collect_used_jsx_tags(expr: Expression, used_tags: Set[str], errors: List[di
             collect_used_jsx_tags(func, used_tags, errors)
     elif isinstance(expr, FunctionDeclarationExpression):
         for stmt in expr.body:
-            collect_used_jsx(stmt, used_tags, errors)
+            collect_used_jsx_tags(stmt, used_tags, errors)
     elif isinstance(expr, VariableDeclarationExpression):
         if isinstance(expr.value, ArrowFunctionExpression):
             for stmt in expr.value.body:
@@ -959,10 +959,10 @@ def collect_used_jsx_tags(expr: Expression, used_tags: Set[str], errors: List[di
                 "suggestion": f"Ensure the closing tag matches the opening tag '<{expr.open_tag}>'.",
             })
         for content in expr.content:
-            collect_used_jsx(content, used_tags, errors)
+            collect_used_jsx_tags(content, used_tags, errors)
     elif isinstance(expr, (list, tuple)):
         for e in expr:
-            collect_used_jsx(e, used_tags, errors)
+            collect_used_jsx_tags(e, used_tags, errors)
     if isinstance(expr, ProgramExpression):
         print(f"Collected JSX tags: {used_tags}", file=sys.stderr)
         if not used_tags:
