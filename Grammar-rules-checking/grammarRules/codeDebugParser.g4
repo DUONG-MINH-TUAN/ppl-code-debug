@@ -141,6 +141,7 @@ expression: valueIndicator                     # varExpr
           | boolean                             # boolExpr
           | expression op=(MUL | DIV) expression  # mulDivExpr
           | expression op=(ADD | SUB) expression  # addSubExpr
+          | expression op=(GT | LT | EQ | NEQ) expression  # compareExpr
           | LEFT_PARENTHESIS expression RIGHT_PARENTHESIS # parenExpr;
 
 errorRule: .+? (SEMICOLON | RIGHT_BRACE | EOF);

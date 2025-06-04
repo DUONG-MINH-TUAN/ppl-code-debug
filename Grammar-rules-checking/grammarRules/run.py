@@ -243,6 +243,17 @@ class BooleanExpression(Expression):
         super().__init__(line)
         self.value = value
 
+class CompareExpression(Expression):
+    def __init__(self, op, left, right, line):
+        super().__init__(line)
+        self.op = op
+        self.left = left
+        self.right = right
+
+    def interpret(self, context):
+        self.left.interpret(context)
+        self.right.interpret(context)
+
 class BinaryExpression(Expression):
     def __init__(self, op, left, right, line):
         super().__init__(line)
@@ -375,11 +386,11 @@ class Context:
                     })
 
 # Constants
-DIR = os.path.dirname(__file__)
-CPL_DEST = "CompiledFiles"
-LEXER_SRC = "codeDebugLexer.g4"
-PARSER_SRC = "codeDebugParser.g4"
-TEMP_FILE = "temp.js"
+DIR = os.path.dirname(os.path.abspath(__file__))
+CPL_DEST = os.path.join(DIR, "CompiledFiles")
+LEXER_SRC = os.path.join(DIR, "codeDebugLexer.g4")
+PARSER_SRC = os.path.join(DIR, "codeDebugParser.g4")
+TEMP_FILE = os.path.join(DIR, "temp.js")
 
 # Load environment variables
 load_dotenv()
@@ -850,7 +861,11 @@ class ASTBuilder:
             line = ctx.IDENTIFIER().symbol.line
             return ValueIndicatorExpression(name, line)
         elif isinstance(ctx, codeDebugParser.Return_statementContext):
-            element = self.visit(ctx.element(), input_lines) if ctx.element() else None
+            element = None
+            if ctx.element():
+                element = self.visit(ctx.element(), input_lines)
+            elif ctx.expression():
+                element = self.visit(ctx.expression(), input_lines)
             line = ctx.start.line
             return ReturnStatementExpression(element, line)
         elif isinstance(ctx, codeDebugParser.ForStatementContext):
@@ -879,6 +894,11 @@ class ASTBuilder:
             right = self.visit(ctx.expression(1), input_lines)
             op = "*" if ctx.MUL() else "/"
             return BinaryExpression(op, left, right, ctx.start.line)
+        elif isinstance(ctx, codeDebugParser.CompareExprContext):
+            left = self.visit(ctx.expression(0), input_lines)
+            right = self.visit(ctx.expression(1), input_lines)
+            op = ctx.op.getText()
+            return CompareExpression(op, left, right, ctx.start.line)
         elif isinstance(ctx, codeDebugParser.AddSubExprContext):
             left = self.visit(ctx.expression(0), input_lines)
             right = self.visit(ctx.expression(1), input_lines)
@@ -902,11 +922,39 @@ class ASTBuilder:
             name = ctx.IDENTIFIER(0).getText()  # Tên class
             line = ctx.IDENTIFIER(0).symbol.line
             methods = [self.visit(method, input_lines) for method in ctx.methodDeclaration()] if ctx.methodDeclaration() else []
-            return ClassComponentExpression(name, methods, line)
+            return ClassComponentExpression(name, methods, line)        
+        elif isinstance(ctx, codeDebugParser.HookCallContext):
+                hook_name = ctx.IDENTIFIER().getText()
+                args = []
+                if ctx.parameter_list() and ctx.parameter_list().parameter():
+                    param_nodes = ctx.parameter_list().parameter()
+                    if isinstance(param_nodes, list):
+                        args = [param.getText() for param in param_nodes if hasattr(param, 'getText')]
+                    else:
+                        args = [param_nodes.getText()] if hasattr(param_nodes, 'getText') else []
+                return HookCallExpression(hook_name, args, ctx.start.line)
+        elif isinstance(ctx, codeDebugParser.MethodDeclarationContext):
+            name = ctx.IDENTIFIER().getText()
+            line = ctx.IDENTIFIER().symbol.line
+            params = []
+            if ctx.parameter_list() and ctx.parameter_list().parameter():
+                param_nodes = ctx.parameter_list().parameter()
+                if isinstance(param_nodes, list):
+                    params = [param.getText() for param in param_nodes if hasattr(param, 'getText')]
+                else:
+                    params = [param_nodes.getText()] if hasattr(param_nodes, 'getText') else []
+            body = []
+            if ctx.body_function() and ctx.body_function().content():
+                content_nodes = ctx.body_function().content()
+                if isinstance(content_nodes, list):
+                    body = [self.visit(content, input_lines) for content in content_nodes]
+                else:
+                    body = [self.visit(content_nodes, input_lines)]
+            return FunctionDeclarationExpression(name, line, params, body)
         else:
-            error_msg = f"Unhandled node type at line {ctx.start.line}: {type(ctx).__name__}"
-            print(error_msg, file=sys.stderr)
-            raise ValueError(error_msg)
+                print(f"Unhandled node type: {type(ctx).__name__}", file=sys.stderr)
+                sys.stderr.flush()
+                raise ValueError(f"Unhandled node type: {type(ctx).__name__}")
 def print_parse_tree(ctx, parser, level=0):
     """Duyệt và in parse tree chi tiết."""
     indent = "  " * level
@@ -941,64 +989,63 @@ def collect_function_names(ast: Expression, context: Context) -> Set[str]:
                     print(f"Found ArrowFunctionExpression for {func.name}", file=sys.stderr)
                     function_names.add(func.name)
                     context.declare_function(func.name, func.line)
-            elif isinstance(ctx, codeDebugParser.HookCallContext):
-                hook_name = ctx.IDENTIFIER().getText()
-                args = []
-                if ctx.parameter_list() and ctx.parameter_list().parameter():
-                    param_nodes = ctx.parameter_list().parameter()
-                    if isinstance(param_nodes, list):
-                        args = [param.getText() for param in param_nodes if hasattr(param, 'getText')]
-                    else:
-                        args = [param_nodes.getText()] if hasattr(param_nodes, 'getText') else []
-                return HookCallExpression(hook_name, args, ctx.start.line)
-            else:
-                print(f"Unhandled node type: {type(ctx).__name__}", file=sys.stderr)
-                sys.stderr.flush()
-                raise ValueError(f"Unhandled node type: {type(ctx).__name__}")
+            
     print(f"Collected function names: {function_names}", file=sys.stderr)
     sys.stderr.flush()
     return function_names
-def collect_used_jsx_tags(expr: Expression, used_tags: Set[str],errors: List[str]):
+def collect_used_jsx_tags(expr: Expression, used_tags: Set[str], errors: List[dict]):
     if isinstance(expr, ProgramExpression):
         for func in expr.functions:
-            collect_used_jsx_tags(func, used_tags,errors)
+            collect_used_jsx_tags(func, used_tags, errors)
     elif isinstance(expr, FunctionDeclarationExpression):
         for stmt in expr.body:
             collect_used_jsx_tags(stmt, used_tags, errors)
     elif isinstance(expr, VariableDeclarationExpression):
         if isinstance(expr.value, ArrowFunctionExpression):
             for stmt in expr.value.body:
-                collect_used_jsx_tags(stmt, used_tags,errors)
+                collect_used_jsx_tags(stmt, used_tags, errors)
+    elif isinstance(expr, FunctionalComponentExpression):
+        collect_used_jsx_tags(expr.body, used_tags, errors)
+    elif isinstance(expr, ClassComponentExpression):
+        for method in expr.methods:
+            collect_used_jsx_tags(method, used_tags, errors)
     elif isinstance(expr, ArrowFunctionExpression):
         for stmt in expr.body:
-            collect_used_jsx_tags(stmt, used_tags,errors)
+            collect_used_jsx_tags(stmt, used_tags, errors)
     elif isinstance(expr, ReturnStatementExpression) and expr.element:
-        collect_used_jsx_tags(expr.element, used_tags,errors)
+        collect_used_jsx_tags(expr.element, used_tags, errors)
     elif isinstance(expr, ElementExpression):
         print(f"Found ElementExpression with open_tag: {expr.open_tag}", file=sys.stderr)
         if expr.open_tag:
             used_tags.add(expr.open_tag)
             print(f"Added tag to used_tags: {expr.open_tag}, used_tags now: {used_tags}", file=sys.stderr)
         for content in expr.content:
-            collect_used_jsx_tags(content, used_tags,errors)
+            collect_used_jsx_tags(content, used_tags, errors)
     elif isinstance(expr, (list, tuple)):
         for e in expr:
-            collect_used_jsx_tags(e, used_tags,errors)
+            collect_used_jsx_tags(e, used_tags, errors)
     # Chỉ in log một lần ở cuối
     if isinstance(expr, ProgramExpression):
         print(f"Collected JSX tags: {used_tags}", file=sys.stderr)
-        if ( not used_tags):
-            errors.append("No valid JSX tags found in the program")
+        if not used_tags:
+            errors.append({"error": "No valid JSX tags found in the program"})
         sys.stderr.flush()
-
 def check_function_return_jsx(expr: Expression, func_name: str) -> tuple[bool, int, str]:
     """Check if a function contains a return statement with a JSX element, and if it matches the function name."""
     if isinstance(expr, FunctionDeclarationExpression):
         body = expr.body
     elif isinstance(expr, ArrowFunctionExpression):
         body = expr.body
+    elif isinstance(expr, FunctionalComponentExpression):
+        body = expr.body
     else:
         body = expr
+    if isinstance(body, ElementExpression):
+        tag = body.open_tag
+        line = body.line
+        print(f"Function {func_name} returns JSX tag '{tag}' at line {line}", file=sys.stderr)
+        sys.stderr.flush()
+        return True, line, tag
     if isinstance(body, (list, tuple)):
         for stmt in body:
             if isinstance(stmt, ReturnStatementExpression) and isinstance(stmt.element, ElementExpression):
@@ -1008,32 +1055,30 @@ def check_function_return_jsx(expr: Expression, func_name: str) -> tuple[bool, i
                 sys.stderr.flush()
                 return True, line, tag
     return False, 0, ""
-
-def check_element_tags(ast: Expression, function_names: Set[str], errors: List[str]):
+def check_element_tags(ast: Expression, function_names: Set[str], errors: List[dict]):
     """Check ElementExpressions in the AST for React component naming and self-referential JSX issues."""
     used_jsx_tags = set()
-    collect_used_jsx_tags(ast, used_jsx_tags,errors)
+    collect_used_jsx_tags(ast, used_jsx_tags, errors)
     print(f"Checking element tags with function names: {function_names}, used JSX tags: {used_jsx_tags}", file=sys.stderr)
     sys.stderr.flush()
 
     def validate_function(func, func_name: str, line: int):
         if not func_name:
             return
-        body = func.body if isinstance(func, (FunctionDeclarationExpression, ArrowFunctionExpression)) else []
-        is_jsx_component, return_line, return_tag = check_function_return_jsx(body, func_name)
+        is_jsx_component, return_line, return_tag = check_function_return_jsx(func, func_name)
         is_used_as_jsx = func_name in used_jsx_tags or func_name.lower() in [tag.lower() for tag in used_jsx_tags]
         if is_used_as_jsx:
             if not func_name[0].isupper():
                 capitalized_name = func_name[0].upper() + func_name[1:] if len(func_name) > 1 else func_name.upper()
-                errors.append(
-                    f"Invalid React component name at line {line}: '{func_name}' is used as a component but does not start with an uppercase letter.\n"
-                    f"Suggestion: Rename the function '{func_name}' to '{capitalized_name}' to use it as a React component."
-                )
+                errors.append({
+                    "error": f"Invalid React component name at line {line}: '{func_name}' is used as a component but does not start with an uppercase letter.",
+                    "suggestion": f"Rename the function '{func_name}' to '{capitalized_name}' to use it as a React component."
+                })
             if return_tag.lower() == func_name.lower():
-                errors.append(
-                    f"Invalid JSX tag in return statement at line {return_line}: Function '{func_name}' returns a JSX element '<{return_tag}/>' that matches its own name.\n"
-                    f"Suggestion: Avoid using a JSX tag with the same name as the function to prevent recursive or invalid references."
-                )
+                errors.append({
+                    "error": f"Invalid JSX tag in return statement at line {return_line}: Function '{func_name}' returns a JSX element '<{return_tag}/>' that matches its own name.",
+                    "suggestion": "Avoid using a JSX tag with the same name as the function to prevent recursive or invalid references."
+                })
 
     if isinstance(ast, ProgramExpression):
         for func in ast.functions:
@@ -1041,16 +1086,19 @@ def check_element_tags(ast: Expression, function_names: Set[str], errors: List[s
                 validate_function(func, func.name, func.line)
             elif isinstance(func, VariableDeclarationExpression) and isinstance(func.value, ArrowFunctionExpression):
                 validate_function(func.value, func.name, func.line)
-
+            elif isinstance(func, FunctionalComponentExpression):
+                validate_function(func, func.name, func.line)
+            elif isinstance(func, ClassComponentExpression):
+                validate_function(func, func.name, func.line)
 
     # Check for undefined components
     html_tags = {'div', 'span', 'p', 'a', 'button', 'input', 'img', 'h1', 'h2', 'h3', 'ul', 'li', 'table'}
     for tag in used_jsx_tags:
         if tag not in function_names and tag.lower() not in html_tags:
-            errors.append(
-                f"Invalid JSX tag at line unknown: '{tag}' is used as a JSX tag but no corresponding component is defined.\n"
-                f"Suggestion: Define a component named '{tag[0].upper() + tag[1:]}' or use an existing HTML element."
-            )
+            errors.append({
+                "error": f"Invalid JSX tag at line unknown: '{tag}' is used as a JSX tag but no corresponding component is defined.",
+                "suggestion": f"Define a component named '{tag[0].upper() + tag[1:]}' or use an existing HTML element."
+            })
 
     print(f"Errors after checking element tags: {errors}", file=sys.stderr)
     sys.stderr.flush()
