@@ -34,6 +34,7 @@ content: stateSetter stat_breakDown
        | return_statement stat_breakDown
        | variableDeclaration stat_breakDown
        | forStatement stat_breakDown
+       | hookCall
        | ifStatement stat_breakDown;
 
 variableTypes: CONST | VAR | LET;
@@ -51,6 +52,7 @@ statement: variableDeclaration stat_breakDown
          | stringDeclaration stat_breakDown
          | arrowFunction stat_breakDown
          | arrayDeclaration stat_breakDown
+         | hookCall SEMICOLON
          | dateDeclaration stat_breakDown;
 
 array: LEFT_SQUARE_BRACKET arrayValue* RIGHT_SQUARE_BRACKET;
@@ -72,7 +74,8 @@ openTag: JSX_OPEN_TAG TAG_RIGHT_ANGLE_BRACKET | TAG_OPEN_TAG TAG_RIGHT_ANGLE_BRA
 closeTag: TAG_CLOSE_TAG;
 selfClosingTag: TAG_SELF_CLOSING_TAG;
 
-elementContent: element | valueIndicator | TAG_TEXT;
+// Content of the element
+elementContent: element | valueIndicator | TAG_TEXT | JSX_ATTR;
 valueIndicator: LEFT_BRACE IDENTIFIER RIGHT_BRACE;  
 
 stringDeclaration: variableTypes IDENTIFIER EQUAL stringValue;
@@ -89,7 +92,7 @@ dateDeclaration: variableTypes IDENTIFIER EQUAL NEW DATE_FUNC;
 stateSetter: variableTypes statePair EQUAL USE_STATE initialValue;
 statePair: LEFT_SQUARE_BRACKET IDENTIFIER COMMA IDENTIFIER RIGHT_SQUARE_BRACKET;
 initialValue: LEFT_PARENTHESIS valueForInitialization* RIGHT_PARENTHESIS;
-valueForInitialization: IDENTIFIER | NUMBER+ | array | stringValue;
+valueForInitialization: IDENTIFIER | NUMBER+ | array | stringValue | BOOLEAN;
 
 useEffectCall: USE_EFFECT LEFT_PARENTHESIS callbackFunction COMMA dependencyArray RIGHT_PARENTHESIS;
 callbackFunction: LEFT_PARENTHESIS RIGHT_PARENTHESIS IMPLIE LEFT_BRACE content* RIGHT_BRACE;
@@ -129,6 +132,9 @@ blockContent: stateSetter stat_breakDown
             | dateDeclaration stat_breakDown   
             | variableDeclaration stat_breakDown;
 
+hookCall: IDENTIFIER LEFT_PARENTHESIS parameter_list? RIGHT_PARENTHESIS;
+
+// Expression for conditions
 expression: valueIndicator                     # varExpr
           | NUMBER                              # numExpr
           | stringValue                         # strExpr

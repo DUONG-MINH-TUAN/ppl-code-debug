@@ -59,6 +59,7 @@ IDENTIFIER: [a-zA-Z][a-zA-Z0-9]*;
 
 // Định nghĩa số
 NUMBER: [0-9][0-9]*;
+BOOLEAN: 'true' | 'false';
 
 // Định nghĩa chuỗi
 fragment STRING_CONTENT: (~["'\\] | '\\' ["'\\])*;
@@ -76,6 +77,7 @@ TAG_LEFT_ANGLE_BRACKET: '<';
 TAG_OPEN_TAG: TAG_LEFT_ANGLE_BRACKET IDENTIFIER -> pushMode(TAG_MODE); // Thẻ mở lồng nhau
 TAG_TEXT: ~[<>{}]+; // Nội dung văn bản
 TAG_WS: [ \t\r\n]+ -> skip;
+JSX_ATTR: 'ref=' '{' IDENTIFIER '}';
 TAG_CLOSE_TAG: TAG_LEFT_ANGLE_BRACKET TAG_SLASH IDENTIFIER TAG_RIGHT_ANGLE_BRACKET -> popMode; // Thẻ đóng
 TAG_SELF_CLOSING_TAG: TAG_LEFT_ANGLE_BRACKET IDENTIFIER TAG_SLASH TAG_RIGHT_ANGLE_BRACKET -> popMode; // Thẻ tự đóng
 TAG_FRAGMENT_CLOSE: TAG_LEFT_ANGLE_BRACKET TAG_SLASH TAG_RIGHT_ANGLE_BRACKET -> popMode; // Fragment đóng
