@@ -10,9 +10,6 @@ function ChatContainer({ onFirstMessage }) {
   const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
-    setIsActive(true);
-  }, []);
-  useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
@@ -47,6 +44,7 @@ function ChatContainer({ onFirstMessage }) {
         grammarMessage = grammarResponse.data.result.message;
         isError = false;
       }
+      setIsActive(true);
 
       setMessages((prevMessages) => {
         const newMessages = [
@@ -81,20 +79,16 @@ function ChatContainer({ onFirstMessage }) {
     <div className={`chat-section ${isActive ? "active" : ""}`}>
       {" "}
       <div className="chat-messages">
-        {messages.length > 0 ? (
-          messages.map((message, index) => {
-            return (
-              <ChatMessage
-                key={index + message.text}
-                message={message.text}
-                isUser={message.isUser}
-                isError={message.isError}
-              />
-            );
-          })
-        ) : (
-          <div className="chat-messages"></div>
-        )}
+        {messages.map((message, index) => {
+          return (
+            <ChatMessage
+              key={index + message.text}
+              message={message.text}
+              isUser={message.isUser}
+              isError={message.isError}
+            />
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
       <div className="chat-input-wrapper">
