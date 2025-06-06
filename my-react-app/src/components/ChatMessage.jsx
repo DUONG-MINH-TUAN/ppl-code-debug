@@ -1,6 +1,5 @@
 import React from 'react';
 import '../styles/ChatMessage.css';
-// Import your avatar images
 import userAvatar from '../assets/Dune.jpg';
 import assistantAvatar from '../assets/robot.png';
 

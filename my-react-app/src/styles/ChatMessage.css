@@ -1,4 +1,3 @@
-/* Thêm hiệu ứng trong suốt ban đầu cho container */
 .chat-container {
     display: flex;
     flex-direction: column;
@@ -10,7 +9,7 @@
     transition: all 0.5s ease-in-out;
     border-radius: 18px;
     overflow: hidden;
-    opacity: 1; /* Trong suốt nhẹ ban đầu */
+    opacity: 1;
 }
 
 /* Khi chat active, container trở nên rõ ràng */

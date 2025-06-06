@@ -8,14 +8,11 @@ function ChatContainer({ onFirstMessage }) {
   const [messages, setMessages] = useState([]);
   const messagesEndRef = useRef(null);
 
-  // Auto scroll to bottom whenever messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Function to handle sending new messages
   const handleSendMessage = async (message, grammarCallback) => {
-    // Add user message to chat
     setMessages((prevMessages) => [
       ...prevMessages,
       { text: message, isUser: true },
@@ -64,7 +61,6 @@ function ChatContainer({ onFirstMessage }) {
     }
   };
 
-  // Scroll to bottom of messages
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };

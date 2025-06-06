@@ -5,11 +5,9 @@ const cors = require("cors");
 
 const app = express();
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Định nghĩa đường dẫn đến run.py
 const pythonScriptPath = path.join(
   __dirname,
   "..",
@@ -19,10 +17,8 @@ const pythonScriptPath = path.join(
   "run.py"
 );
 
-// Debug đường dẫn
 console.log("Python script path:", pythonScriptPath);
 
-// Endpoint để kiểm tra ngữ pháp
 app.post("/check-grammar", (req, res) => {
   const input = req.body.input;
 
