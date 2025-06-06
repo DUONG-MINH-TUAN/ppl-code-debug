@@ -22,7 +22,7 @@ ADD: '+';
 SUB: '-';       
 MUL: '*';
 DIV: '/';
-JSX_EXPRESSION: '{' ~[{}]* '}';
+
 BIGINT_LITERAL: [0-9]+ 'n';
 FUNCTION: 'function';
 EXPORT: 'export default';
