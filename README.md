@@ -1,3 +1,4 @@
+````
 # PPL-DEBUGGING-PROJECT
 
 # HookScope - Static Analysis of React Hook Dependencies
@@ -29,7 +30,7 @@ function Timer() {
   }, []);
   return <div>Seconds: {seconds}</div>;
 }
-```
+````
 
 **Output**: "Missing dependency 'seconds' at line 3"
 
@@ -126,6 +127,61 @@ fix: Resolve missing dependency detection in useEffect
 
 - **Final Submission**: 04/06/2025
 
+## Getting Started
+
+### Prerequisites
+
+- Node.js and npm installed on your machine.
+- Python installed for the Grammar Checker.
+- Ensure all project dependencies are installed by running `npm install` in the respective folders.
+
+### Running the Project
+
+1. **Start the Backend**:
+
+   - Open a terminal window.
+   - Navigate to the backend folder:
+     cd ppl-code-debug\my-react-app\api
+   - Run the backend server:
+     npm start
+   - The backend should now be running on port 3000 (or the port specified in your configuration). You’ll see a message like "Server running on port 3000" in the terminal.
+
+2. **Start the Frontend**:
+
+   - Open a new terminal window (keep the backend terminal running).
+   - Navigate to the frontend folder:
+     cd ppl-code-debug\my-react-app
+   - Start the React development server:
+     npm run dev
+   - The frontend should now be running, and you’ll see a message in the terminal with a link like "http://localhost:5173/".
+   - Press Ctrl + click on the link (http://localhost:5173/) to open the chat interface in your default web browser.
+
+3. **Use the Chat Interface to Check Grammar**:
+   - Once the chat interface loads, enter your JSX code into the CodeMirror editor. For example:
+     ```jsx
+     function Timer() {
+       const [seconds, setSeconds] = useState(0);
+       useEffect(() => {
+         const interval = setInterval(() => {
+           setSeconds(seconds + 1);
+         }, 1000);
+         return () => clearInterval(interval);
+       }, []);
+       return <div>Seconds: {seconds}</div>;
+     }
+     ```
+   - Submit the code by pressing Enter or clicking the send button.
+   - The frontend will send the code to the backend, which will process it using the Grammar Checker (implemented in Python via `run.py`).
+   - The response will appear in the chat interface:
+     - If the code is valid, you’ll see a green feedback bubble: "Input accepted".
+     - If there are errors, you’ll see a red feedback bubble with details, such as "Missing dependency 'seconds' at line 3".
+
+### Troubleshooting
+
+- If the backend fails to start, ensure port 3000 is not in use and check for missing dependencies (`npm install`).
+- If the frontend doesn’t load, confirm you’ve run `npm install` in the `my-react-app` folder and that port 5173 is available.
+- If the Grammar Checker fails (e.g., no response or errors about `run.py`), verify Python is installed and that the backend is correctly routing requests to the Python process.
+
 ## Contributing
 
 HookScope is an open-source project. Contributions are welcome! Please fork the repository, create a feature branch, and submit a pull request. Follow the Git Practices and Commit Naming Conventions outlined above.
@@ -141,3 +197,7 @@ This README will be updated as the project progresses. For questions, contact th
 ---
 
 **HookScope Team, April 2025**
+
+```
+
+```
