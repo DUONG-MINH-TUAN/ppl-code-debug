@@ -194,7 +194,3 @@ This README will be updated as the project progresses. For questions, contact th
 ---
 
 **HookScope Team, April 2025**
-
-```
-
-```
