@@ -5,7 +5,6 @@ import "react-toastify/dist/ReactToastify.css";
 import "../styles/ChatInput.css";
 
 function ChatInput({ onSendMessage }) {
-  // Create refs for file input and textarea
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const [inputValue, setInputValue] = useState("");
@@ -111,11 +110,8 @@ function ChatInput({ onSendMessage }) {
     if (inputValue.trim()) {
       console.log("Sending useEffect code:", inputValue);
 
-      // Pass the message and grammar check result to parent component
       onSendMessage(inputValue.trim(), (grammarResponse, type) => {
-        // This callback will be called when grammar check completes
-        // grammarResponse contains the same message as toast
-        // type can be 'success' or 'error'
+
       });
 
       // Check grammar with callback

@@ -177,7 +177,6 @@
     color: #EE4B2B;
 }
 
-/* Dark mode styles */
 .navbar.dark-mode {
     background-color: #222831;
 }
@@ -226,7 +225,6 @@
     background-color: #555;
 }
 
-/* Responsive adjustments */
 @media (max-width: 768px) {
     .navbar-container {
         padding: 12px 24px;

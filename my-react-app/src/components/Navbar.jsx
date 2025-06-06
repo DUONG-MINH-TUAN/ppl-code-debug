@@ -6,7 +6,6 @@ import Avatar from '../assets/Dune.jpg';
 function Navbar({ onDarkModeToggle, isDarkMode }) {
   const [isAvatarMenuOpen, setIsAvatarMenuOpen] = useState(false);
   
-  // Apply dark mode class to body element
   useEffect(() => {
     if (isDarkMode) {
       document.body.classList.add('dark-mode');

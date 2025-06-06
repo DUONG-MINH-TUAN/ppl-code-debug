@@ -5,7 +5,7 @@ import userAvatar from "../assets/Dune.jpg";
 import assistantAvatar from "../assets/robot.png";
 
 function ChatMessage({ message, isUser }) {
-  console.log("ChatMessage props:", { message, isUser }); // Debug chi tiết
+  console.log("ChatMessage props:", { message, isUser });
   if (!message || typeof message !== "string" || message.trim() === "") {
     console.warn("Message is invalid:", message);
     return <div className="chat-message error">Invalid message</div>;

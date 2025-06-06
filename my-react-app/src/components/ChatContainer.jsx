@@ -10,15 +10,13 @@ function ChatContainer({ onFirstMessage }) {
   const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
-    setIsActive(true); // Kích hoạt khi component mount
+    setIsActive(true);
   }, []);
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Function to handle sending new messages
   const handleSendMessage = async (message, grammarCallback) => {
-    // Add user message to chat
     setMessages((prevMessages) => {
       const newMessages = [...prevMessages, { text: message, isUser: true }];
       console.log("Updated messages after user input:", newMessages);
@@ -75,7 +73,6 @@ function ChatContainer({ onFirstMessage }) {
     }
   };
 
-  // Scroll to bottom of messages
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -106,5 +103,4 @@ function ChatContainer({ onFirstMessage }) {
     </div>
   );
 }
-
 export default ChatContainer;
