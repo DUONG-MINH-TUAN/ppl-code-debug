@@ -1,4 +1,3 @@
-````
 # PPL-DEBUGGING-PROJECT
 
 # HookScope - Static Analysis of React Hook Dependencies
@@ -30,7 +29,7 @@ function Timer() {
   }, []);
   return <div>Seconds: {seconds}</div>;
 }
-````
+```
 
 **Output**: "Missing dependency 'seconds' at line 3"
 
