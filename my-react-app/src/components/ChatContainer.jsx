@@ -93,7 +93,7 @@ function ChatContainer({ onFirstMessage }) {
             );
           })
         ) : (
-          <div className="chat-messages">No messages yet</div>
+          <div className="chat-messages"></div>
         )}
         <div ref={messagesEndRef} />
       </div>
