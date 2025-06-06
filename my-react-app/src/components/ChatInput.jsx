@@ -5,6 +5,7 @@ import "react-toastify/dist/ReactToastify.css";
 import "../styles/ChatInput.css";
 
 function ChatInput({ onSendMessage }) {
+  // Create refs for file input and textarea
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const [inputValue, setInputValue] = useState("");
