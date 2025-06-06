@@ -159,15 +159,13 @@ fix: Resolve missing dependency detection in useEffect
 3. **Use the Chat Interface to Check Grammar**:
    - Once the chat interface loads, enter your JSX code into the CodeMirror editor. For example:
      ```jsx
-     function Timer() {
-       const [seconds, setSeconds] = useState(0);
+     import { useState, useEffect } from "react";
+     function App() {
+       const [data, setData] = useState("");
        useEffect(() => {
-         const interval = setInterval(() => {
-           setSeconds(seconds + 1);
-         }, 1000);
-         return () => clearInterval(interval);
+         setData("Hello");
        }, []);
-       return <div>Seconds: {seconds}</div>;
+       return <div>{data}</div>;
      }
      ```
    - Submit the code by pressing Enter or clicking the send button.
