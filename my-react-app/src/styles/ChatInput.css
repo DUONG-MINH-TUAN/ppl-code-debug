@@ -1,7 +1,7 @@
 .chat-input-container {
     width: 100%;
     max-width: 1000px;
-    margin: 0 auto;
+    margin: 0 auto 20px;
     padding: 14px;
     display: flex;
     border-radius: 0 0 20px 20px;
