@@ -43,6 +43,7 @@ from interpreter.terminal_expression.ImportExpression import ImportExpression
 from interpreter.terminal_expression.ValueIndicatorExpression import ValueIndicatorExpression
 from interpreter.terminal_expression.BigIntExpression import BigIntExpression
 from interpreter.terminal_expression.DateExpression import DateExpression
+
 # Constants
 DIR = os.path.dirname(os.path.abspath(__file__))
 CPL_DEST = os.path.join(DIR, "CompiledFiles")
@@ -144,6 +145,24 @@ class CustomErrorListener(ErrorListener):
         self.errors.append({
             "error": error_message,
             "suggestion": suggestion
+        })
+
+    def reportAmbiguity(self, recognizer, dfa, startIndex, stopIndex, exact, ambigAlts, configs):
+        self.errors.append({
+            "error": f"Ambiguity detected in input at position {startIndex}-{stopIndex}.",
+            "suggestion": "Simplify the input or check for conflicting syntax."
+        })
+
+    def reportAttemptingFullContext(self, recognizer, dfa, startIndex, stopIndex, conflictingAlts, configs):
+        self.errors.append({
+            "error": f"Full context parsing attempted at position {startIndex}-{stopIndex}, indicating potential syntax issues.",
+            "suggestion": "Review the input for complex or invalid constructs."
+        })
+
+    def reportContextSensitivity(self, recognizer, dfa, startIndex, stopIndex, prediction, configs):
+        self.errors.append({
+            "error": f"Context sensitivity detected at position {startIndex}-{stopIndex}.",
+            "suggestion": "Check for ambiguous or unsupported syntax."
         })
 
 class ASTBuilder:
@@ -317,7 +336,6 @@ class ASTBuilder:
             elif ctx.TAG_TEXT():
                 return StringExpression(ctx.TAG_TEXT().getText(), ctx.start.line)
             elif ctx.JSX_EXPRESSION():
-             
                 expr_text = ctx.JSX_EXPRESSION().getText().strip('{}').strip()
                 return ValueIndicatorExpression(expr_text, ctx.start.line)
             else:
@@ -417,7 +435,6 @@ class ASTBuilder:
             if ctx.stringValue():
                 arg = self.visit(ctx.stringValue(), input_lines)
             elif ctx.IDENTIFIER():
-               
                 original_line = input_lines[ctx.start.line - 1] if ctx.start.line <= len(input_lines) else ""
                 ident_text = ctx.IDENTIFIER().getText()
                 if f'"{ident_text}"' in original_line or f"'{ident_text}'" in original_line:
@@ -496,7 +513,6 @@ class ASTBuilder:
                 element = self.visit(ctx.element(), input_lines)
             elif ctx.expression():
                 expr = self.visit(ctx.expression(), input_lines)
-             
                 if isinstance(expr, ElementExpression):
                     element = expr
                 else:
@@ -660,7 +676,6 @@ def collect_used_jsx_tags(expr: Expression, used_tags: Set[str], errors: List[di
                 collect_used_jsx_tags(stmt, used_tags, errors)
     elif isinstance(expr, FunctionalComponentExpression):
         collect_used_jsx_tags(expr.body, used_tags, errors)
-       
         is_jsx_component, _, _ = check_function_return_jsx(expr, expr.name)
         if not is_jsx_component:
             errors.append({
@@ -720,6 +735,7 @@ def check_function_return_jsx(expr: Expression, func_name: str) -> tuple[bool, i
                 sys.stderr.flush()
                 return True, line, tag
     return False, 0, ""
+
 def check_missing_semicolons(ast: Expression, errors: List[dict]):
     if isinstance(ast, ProgramExpression):
         for i in range(len(ast.functions) - 1):
@@ -732,6 +748,7 @@ def check_missing_semicolons(ast: Expression, errors: List[dict]):
                         "error": f"Missing semicolon between statements at line {current.line}",
                         "suggestion": "Add a semicolon to separate the statements."
                     })
+
 def check_element_tags(ast: Expression, function_names: Set[str], errors: List[dict]):
     """Check ElementExpressions in the AST for React component naming and self-referential JSX issues."""
     used_jsx_tags = set()
@@ -776,7 +793,6 @@ def check_element_tags(ast: Expression, function_names: Set[str], errors: List[d
             elif isinstance(func, ClassComponentExpression):
                 validate_function(func, func.name, func.line)
 
-  
     html_tags = {'div', 'span', 'p', 'a', 'button', 'input', 'img', 'h1', 'h2', 'h3', 'ul', 'li', 'table'}
     for tag in used_jsx_tags:
         if tag not in function_names and tag.lower() not in html_tags:
@@ -806,8 +822,19 @@ def process_input(input_content: str):
         sys.stderr.flush()
         return
 
+    # Clean and validate input
+    cleaned_input = clean_input(input_content)
+    if not re.search(r'(import|function|class|let|const|var|\<|\{|useState|useEffect)', cleaned_input, re.IGNORECASE):
+        print(json.dumps({"success": False, "errors": [{
+            "error": "Input contains no recognizable JavaScript or React syntax.",
+            "suggestion": "Provide valid JavaScript or React code (e.g., 'function App() {}' or '<div></div>')."
+        }]}))
+        print("Run tests completely", file=sys.stderr)
+        sys.stderr.flush()
+        return
+
     print("List of token: ", file=sys.stderr)
-    input_stream = InputStream(input_content)
+    input_stream = InputStream(cleaned_input)
     lexer = codeDebugLexer(input_stream)
     tokens = []
     token = lexer.nextToken()
@@ -818,12 +845,12 @@ def process_input(input_content: str):
     print(",".join(tokens), file=sys.stderr)
     sys.stderr.flush()
 
-    lexer = codeDebugLexer(InputStream(input_content))
+    lexer = codeDebugLexer(InputStream(cleaned_input))
     token_stream = CommonTokenStream(lexer)
     parser = codeDebugParser(token_stream)
 
     parser.removeErrorListeners()
-    error_listener = CustomErrorListener(input_content)
+    error_listener = CustomErrorListener(cleaned_input)
     parser.addErrorListener(error_listener)
 
     try:
@@ -834,8 +861,15 @@ def process_input(input_content: str):
         print_parse_tree(tree, parser)
         sys.stderr.flush()
 
-        if tree and not tree.getText().strip() == "":
-            error_listener.errors = []
+        # Validate parse tree
+        if not tree or not tree.getText().strip() or all(isinstance(child, TerminalNode) for child in tree.getChildren()):
+            print(json.dumps({"success": False, "errors": [{
+                "error": "Input does not form a valid program structure.",
+                "suggestion": "Provide a complete JavaScript or React program (e.g., 'function App() { return <div></div>; }')."
+            }]}))
+            print("Run tests completely", file=sys.stderr)
+            sys.stderr.flush()
+            return
 
         if error_listener.errors:
             print(json.dumps({"success": False, "errors": error_listener.errors}, indent=2))
@@ -845,23 +879,23 @@ def process_input(input_content: str):
 
         print("Building AST...", file=sys.stderr)
         sys.stderr.flush()
-        print(f"input contents: {input_content}", file=sys.stderr)
-        print(f"input content split lines: {input_content.splitlines()}", file=sys.stderr)
-        context = Context(input_content.splitlines())
+        print(f"input contents: {cleaned_input}", file=sys.stderr)
+        print(f"input content split lines: {cleaned_input.splitlines()}", file=sys.stderr)
+        context = Context(cleaned_input.splitlines())
         print(f"Context: {context}", file=sys.stderr)
 
-        import_matches = re.findall(r'import\s*{\s*([^}]+)\s*}\s*from\s*[\'"]([^\'"]+)[\'"]', input_content)
+        import_matches = re.findall(r'import\s*{\s*([^}]+)\s*}\s*from\s*[\'"]([^\'"]+)[\'"]', cleaned_input)
         for imports, _ in import_matches:
             for imp in imports.split(','):
                 context.add_import(imp.strip())
         
-        param_matches = re.findall(r'function\s+\w+\s*\(\s*{\s*([^}]+)\s*}\s*\)', input_content)
+        param_matches = re.findall(r'function\s+\w+\s*\(\s*{\s*([^}]+)\s*}\s*\)', cleaned_input)
         for params in param_matches:
             for param in params.split(','):
                 context.add_prop(param.strip())
 
         ast_builder = ASTBuilder()
-        ast = ast_builder.build(tree, input_content.splitlines())
+        ast = ast_builder.build(tree, cleaned_input.splitlines())
 
         if ast is None:
             print(json.dumps({"success": False, "errors": [{"error": "Failed to build AST", "suggestion": "Check for syntax errors in the input code."}]}, indent=2))
@@ -883,7 +917,7 @@ def process_input(input_content: str):
         sys.stderr.flush()
         ast.interpret(context)
 
-        if 'useRef' in input_content:
+        if 'useRef' in cleaned_input:
             context.errors.append({
                 "error": "useRef hook detected, which is not supported by the current grammar.",
                 "suggestion": "Remove useRef or extend the grammar to support it."
