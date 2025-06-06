@@ -12,7 +12,7 @@ from CompiledFiles.codeDebugParser import codeDebugParser
 from antlr4.error.ErrorListener import ErrorListener
 from antlr4.tree.Tree import TerminalNode
 
-# Define base Expression class
+
 class Expression:
     def __init__(self, line: int):
         self.line = line
@@ -20,7 +20,7 @@ class Expression:
     def interpret(self, context):
         pass
 
-# Define non-terminal expressions
+
 class ProgramExpression(Expression):
     def __init__(self, import_stmt, functions):
         super().__init__(0)
@@ -30,7 +30,7 @@ class ProgramExpression(Expression):
     def interpret(self, context):
         print(f"Interpreting ProgramExpression", file=sys.stderr)
         context.current_scope = "global"
-        # NEW: Collect all variable declarations first
+       
         for func in self.functions:
             if isinstance(func, VariableDeclarationExpression):
                 # Defer symbol addition to VariableDeclarationExpression.interpret
@@ -63,7 +63,7 @@ class FunctionalComponentExpression(Expression):
         super().__init__(line)
         self.name = name
         self.params = params
-        self.body = body  # Element trả về
+        self.body = body  
 
     def interpret(self, context):
         context.current_scope = self.name
@@ -357,7 +357,7 @@ class Context:
             if expr.value:
                 self.collect_identifiers(expr.value, identifiers)
         elif isinstance(expr, ConsoleCommandExpression):
-            if expr.arg and isinstance(expr.arg, ValueIndicatorExpression):  # Only collect identifiers, not strings
+            if expr.arg and isinstance(expr.arg, ValueIndicatorExpression):  
                 self.collect_identifiers(expr.arg, identifiers)
         elif isinstance(expr, ArrowFunctionExpression):
             for content in expr.body:
@@ -396,13 +396,13 @@ class Context:
                         "error": f"{hook_type} at line {line} references undefined variable '{ident}'.",
                         "suggestion": f"Ensure '{ident}' is defined (e.g., via useState or props) before using it in {hook_type}."
                     })
-                # MODIFIED: Skip dependency check for variables defined in global scope
+                
                 elif ident not in deps and ident not in self.props and ident not in self.symbols.get("global", set()):
                     self.errors.append({
                         "error": f"{hook_type} at line {line} has missing dependency: '{ident}' is used but not in the dependency array.",
                         "suggestion": f"Add '{ident}' to the dependency array."
                     })
-            # MODIFIED: Skip empty deps warning if identifiers are all in global scope
+            
             if not deps and identifiers and not all(ident in self.symbols.get("global", set()) for ident in identifiers):
                 self.errors.append({
                     "error": f"{hook_type} at line {line} uses variables {identifiers} but has an empty dependency array, which may cause stale closures.",
@@ -561,7 +561,6 @@ class ASTBuilder:
                 return self.visit(ctx.variableDeclaration(), input_lines)
             elif ctx.stateSetter():
                 return self.visit(ctx.stateSetter(), input_lines)
-            # ... (other cases)
             else:
                 error_msg = f"Error: Unhandled block content at line {ctx.start.line}: '{ctx.getText()}'"
                 print(error_msg, file=sys.stderr)
@@ -691,7 +690,7 @@ class ASTBuilder:
             elif ctx.TAG_TEXT():
                 return StringExpression(ctx.TAG_TEXT().getText(), ctx.start.line)
             elif ctx.JSX_EXPRESSION():
-                # Extract identifier from {id} by removing braces
+             
                 expr_text = ctx.JSX_EXPRESSION().getText().strip('{}').strip()
                 return ValueIndicatorExpression(expr_text, ctx.start.line)
             else:
@@ -791,7 +790,7 @@ class ASTBuilder:
             if ctx.stringValue():
                 arg = self.visit(ctx.stringValue(), input_lines)
             elif ctx.IDENTIFIER():
-                # Check if the IDENTIFIER is a quoted string in the original input
+               
                 original_line = input_lines[ctx.start.line - 1] if ctx.start.line <= len(input_lines) else ""
                 ident_text = ctx.IDENTIFIER().getText()
                 if f'"{ident_text}"' in original_line or f"'{ident_text}'" in original_line:
@@ -870,11 +869,11 @@ class ASTBuilder:
                 element = self.visit(ctx.element(), input_lines)
             elif ctx.expression():
                 expr = self.visit(ctx.expression(), input_lines)
-                # Only treat as element if it's an ElementExpression
+             
                 if isinstance(expr, ElementExpression):
                     element = expr
                 else:
-                    element = expr  # Keep as BinaryExpression, etc.
+                    element = expr  
             line = ctx.start.line
             return ReturnStatementExpression(element, line)
         elif isinstance(ctx, codeDebugParser.ForStatementContext):
@@ -1034,7 +1033,7 @@ def collect_used_jsx_tags(expr: Expression, used_tags: Set[str], errors: List[di
                 collect_used_jsx_tags(stmt, used_tags, errors)
     elif isinstance(expr, FunctionalComponentExpression):
         collect_used_jsx_tags(expr.body, used_tags, errors)
-        # Check if FunctionalComponentExpression returns JSX
+       
         is_jsx_component, _, _ = check_function_return_jsx(expr, expr.name)
         if not is_jsx_component:
             errors.append({
@@ -1118,7 +1117,7 @@ def check_element_tags(ast: Expression, function_names: Set[str], errors: List[d
             return
         is_jsx_component, return_line, return_tag = check_function_return_jsx(func, func_name)
         is_used_as_jsx = func_name in used_jsx_tags
-        if is_used_as_jsx:  # Only check naming for functions used as JSX tags
+        if is_used_as_jsx: 
             if not func_name[0].isupper():
                 capitalized_name = func_name[0].upper() + func_name[1:] if len(func_name) > 1 else func_name.upper()
                 errors.append({
@@ -1130,7 +1129,7 @@ def check_element_tags(ast: Expression, function_names: Set[str], errors: List[d
                     "error": f"Invalid JSX tag in return statement at line {return_line}: Function '{func_name}' returns a JSX element '<{return_tag}/>' that matches its own name.",
                     "suggestion": "Avoid using a JSX tag with the same name as the function to prevent recursive or invalid references."
                 })
-        elif is_jsx_component:  # Check naming for functions that return JSX but aren't used as tags
+        elif is_jsx_component:  
             if not func_name[0].isupper():
                 capitalized_name = func_name[0].upper() + func_name[1:] if len(func_name) > 1 else func_name.upper()
                 errors.append({
@@ -1150,7 +1149,7 @@ def check_element_tags(ast: Expression, function_names: Set[str], errors: List[d
             elif isinstance(func, ClassComponentExpression):
                 validate_function(func, func.name, func.line)
 
-    # Check for undefined components
+  
     html_tags = {'div', 'span', 'p', 'a', 'button', 'input', 'img', 'h1', 'h2', 'h3', 'ul', 'li', 'table'}
     for tag in used_jsx_tags:
         if tag not in function_names and tag.lower() not in html_tags:
