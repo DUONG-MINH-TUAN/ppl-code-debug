@@ -124,7 +124,7 @@ fix: Resolve missing dependency detection in useEffect
 
 ## Project Deadline
 
-- **Final Submission**: 04/06/2025
+- **Final Submission**: 07/06/2025
 
 ## Getting Started
 

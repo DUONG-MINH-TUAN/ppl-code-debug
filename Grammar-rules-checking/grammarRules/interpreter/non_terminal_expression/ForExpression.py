@@ -1,5 +1,3 @@
-
-
 import sys
 from interpreter.expression import Expression
 class ForExpression(Expression):
